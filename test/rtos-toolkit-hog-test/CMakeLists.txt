@@ -3,7 +3,7 @@ add_executable(rtos-toolkit-hog-test rtos-toolkit-hog-test.c)
 pico_enable_stdio_usb(rtos-toolkit-hog-test 1)
 pico_enable_stdio_uart(rtos-toolkit-hog-test 0)
 
-pico_set_linker_script(rtos-toolkit-hog-test ${CMAKE_CURRENT_SOURCE_DIR}/rtos-toolkit-flash.ld)
+pico_set_linker_script(hello-world $ENV{PICO_TOOLKIT_PATH}/src/picolibc-glue/pico-toolkit-flash.ld)
 
 target_link_libraries(rtos-toolkit-hog-test
 	cmsis_core

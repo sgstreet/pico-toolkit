@@ -1,0 +1,1 @@
+# This disable the -T option in the picolibc*.specs allow the pico-sdk --script to work

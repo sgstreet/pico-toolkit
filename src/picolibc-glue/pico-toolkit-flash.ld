@@ -181,7 +181,6 @@ SECTIONS
     .core_data :
     {
         FILL(0x00)
-        . = ALIGN(4);
         __core_data_start__ = .;
         KEEP(*(.core_data .core_data.*))
         __core_data_end__ = .;
@@ -189,6 +188,7 @@ SECTIONS
     } > FLASH
     __core_data = LOADADDR(.core_data);
     __core_data_size = SIZEOF(.core_data);
+    __core_align = ALIGNOF(.core_data);
 
     /* Start and end symbols must be word-aligned */
     .scratch_x : {
@@ -198,13 +198,15 @@ SECTIONS
         __scratch_x_end__ = .;
 		
         FILL(0x00)
-        . = ALIGN(8);
+
+        . = ALIGN(__core_align);
+        __core_1 = .;
+        . += __core_data_size;
+
+        . = ALIGN(__tls_align);
         __core_1_tls = .;
         . += __tls_size;
         
-        . = ALIGN(8);
-        __core_1 = .;
-        . += __core_data_size;
         . = ALIGN(4);
 
     } > SCRATCH_X AT > FLASH
@@ -217,28 +219,26 @@ SECTIONS
         __scratch_y_end__ = .;
 
         FILL(0x00)
-        . = ALIGN(8);
-        __core_0_tls = .;
-        . += __tls_size;
-
-        . = ALIGN(4);
+        
+        . = ALIGN(__core_align);
         __core_0 = .;
         . += __core_data_size;
+        
+        . = ALIGN(__tls_align);
+        __core_0_tls = .;
+        . += __tls_size;
+        
         . = ALIGN(4);
-
 
     } > SCRATCH_Y AT > FLASH
     __scratch_y_source__ = LOADADDR(.scratch_y);
-
+	__tls_block_offset = __core_0_tls - __core_0;
+	 
     .tdata :
     {
-        . = ALIGN(4);
         __tdata_start__ = .;
-        
         *(.tdata .tdata.* .gnu.linkonce.td.*)
-        
         __tdata_end__ = .;
-        . = ALIGN(4);
     } > RAM AT> FLASH
     __tdata = LOADADDR(.tdata);
     __tdata_size = SIZEOF(.tdata);
@@ -249,13 +249,9 @@ SECTIONS
 
     .tbss (NOLOAD) :
     {
-        . = ALIGN(4);
         __tbss_start__ = .;
-        
         *(.tbss .tbss.* .gnu.linkonce.tb.*)
         *(.tcommon)
-        
-        . = ALIGN(4);
         __tbss_end__ = .;
     } > RAM
     __tbss_size = SIZEOF(.tbss);
