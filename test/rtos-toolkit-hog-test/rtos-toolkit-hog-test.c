@@ -6,10 +6,9 @@
 #include <stdlib.h>
 #include <unistd.h>
 
-#include <hardware/platform_defs.h>
-#include "hardware/regs/addressmap.h"
-#include <hardware/regs/sio.h>
 #include <picotls.h>
+
+#include <pico/platform.h>
 #include <pico/rtos.h>
 
 #define NUM_HOGS 8
@@ -29,11 +28,6 @@ struct task *dump_task_id = 0;
 long events = 0;
 struct futex futex;
 
-static uint32_t current_core(void)
-{
-	volatile uint32_t *cpuid = (volatile uint32_t *)(SIO_BASE + SIO_CPUID_OFFSET);
-}
-
 static void wake_counter_task(void *context)
 {
 	while (true) {
@@ -42,7 +36,7 @@ static void wake_counter_task(void *context)
 			printf("failed to wait for futex: %d\n", status);
 			abort();
 		}
-		++wake_cores[current_core()];
+		++wake_cores[get_core_num()];
 	}
 }
 
@@ -51,7 +45,7 @@ static void hog_task(void *context)
 	struct hog *hog = context;
 
 	while (true) {
-		unsigned int core = current_core();
+		unsigned int core = get_core_num();
 		++hog->loops;
 		++hog->cores[core];
 		if ((random() & 0x8) == 0) {
