@@ -12,6 +12,7 @@
 #include <hardware/regs/sio.h>
 #include <pico/rtos/scheduler.h>
 #include <pico/tls.h>
+#include <pico/retarget-lock.h>
 
 #include "compiler.h"
 #include "cmsis.h"
@@ -19,22 +20,11 @@
 #define LIBC_LOCK_MARKER 0x89988998
 //#define MULTICORE
 
-struct __lock
+struct __rtos_runtime_lock
 {
-	long value;
+	struct __retarget_runtime_lock retarget_lock;
 	struct futex futex;
-	long count;
-	bool allocated;
-	unsigned int marker;
 };
-
-#ifdef _REENT_SMALL
-struct reent_glue
-{
-	bool ready;
-	struct _reent data;
-};
-#endif
 
 extern void _set_tls(void *tls);
 extern void _init_tls(void *__tls_block);
@@ -58,48 +48,107 @@ static exception_handler_t old_svc_handler = 0;
 
 static core_local void *old_tls = { 0 };
 
-/* This prevents the linking of libgcc unwinder code */
-void __aeabi_unwind_cpp_pr0(void);
-void __aeabi_unwind_cpp_pr1(void);
-void __aeabi_unwind_cpp_pr2(void);
-
-void __aeabi_unwind_cpp_pr0(void)
+static struct __rtos_runtime_lock libc_recursive_mutex = { 0 };
+struct __lock __lock___libc_recursive_mutex =
 {
+	.retarget_lock = &libc_recursive_mutex,
 };
 
-void __aeabi_unwind_cpp_pr1(void)
+void __retarget_runtime_lock_init_once(struct __lock *lock)
 {
-};
+	assert(lock != 0);
 
-void __aeabi_unwind_cpp_pr2(void)
+	struct __rtos_runtime_lock *rtos_runtime_lock = lock->retarget_lock;
+
+	/* All ready done */
+	if (atomic_load(&rtos_runtime_lock->retarget_lock.marker) == LIBC_LOCK_MARKER)
+		return;
+
+	/* Try to claim the initializer */
+	int expected = 0;
+	if (!atomic_compare_exchange_strong(&rtos_runtime_lock->retarget_lock.marker, &expected, 1)) {
+
+		/* Wait the the initializer to complete, we sleep to ensure lower priority threads run */
+		while (atomic_load(&rtos_runtime_lock->retarget_lock.marker) == LIBC_LOCK_MARKER)
+			if (scheduler_is_running())
+				scheduler_sleep(10);
+			else
+				__WFE();
+
+		/* Done */
+		return;
+	}
+
+	/* Initialize the lock */
+	rtos_runtime_lock->retarget_lock.value = 0;
+	rtos_runtime_lock->retarget_lock.count = 0;
+	scheduler_futex_init(&rtos_runtime_lock->futex, &rtos_runtime_lock->retarget_lock.value, 0);
+
+	/*  Mark as done */
+	atomic_store(&rtos_runtime_lock->retarget_lock.marker, LIBC_LOCK_MARKER);
+
+	/* Always wake up everyone, no harm done for correct programs */
+	__SEV();
+}
+
+void __retarget_runtime_lock_init(_LOCK_T *lock)
 {
-};
+	assert(lock != 0);
 
-#ifdef _RETARGETABLE_LOCKING
+	/* Get the space for the lock if needed */
+	if (*lock == 0) {
 
+		/* Sigh, we are hiding the type multiple time, I did not make this mess */
+		*lock = calloc(1, sizeof(struct __lock) + sizeof(struct __rtos_runtime_lock));
+		if (!*lock)
+			abort();
+
+		/* Only making it worse */
+		struct __rtos_runtime_lock *rtos_runtime_lock = (void *)(*lock) + sizeof(struct __lock);
+		rtos_runtime_lock->retarget_lock.allocated = true;
+		(*lock)->retarget_lock = rtos_runtime_lock;
+	}
+}
+
+long __retarget_runtime_lock_value(void)
+{
+	return (long)scheduler_task() | (scheduler_current_core() + 1);
+}
+
+void __retarget_runtime_relax(_LOCK_T lock)
+{
+	struct __rtos_runtime_lock *rtos_runtime_lock = lock->retarget_lock;
+
+	if ((__retarget_runtime_lock_value() & 0xfffffffc) != 0) {
+		int status = scheduler_futex_wait(&rtos_runtime_lock->futex, rtos_runtime_lock->retarget_lock.expected, SCHEDULER_WAIT_FOREVER);
+		if (status < 0)
+			abort();
+		return;
+	}
+
+	/* Scheduler is not running, wait for an core event */
+	__WFE();
+}
+
+void __retarget_runtime_wake(_LOCK_T lock)
+{
+	struct __rtos_runtime_lock *rtos_runtime_lock = lock->retarget_lock;
+
+	/* If the scheduler is not running we are done, just do a core event */
+	if ((rtos_runtime_lock->retarget_lock.expected & 0xfffffffc) == 0) {
+		__SEV();
+		return;
+	}
+
+	/* Let the waiters contend for the lock */
+	int status = scheduler_futex_wake(&rtos_runtime_lock->futex, false);
+	if (status < 0)
+		abort();
+}
+
+
+#if 0
 struct __lock __lock___libc_recursive_mutex = { 0 };
-
-#ifdef __REENT_SMALL
-struct __lock __lock___sfp_recursive_mutex = { 0 };
-struct __lock __lock___atexit_recursive_mutex = { 0 };
-struct __lock __lock___at_quick_exit_mutex = { 0 };
-struct __lock __lock___malloc_recursive_mutex = { 0 };
-struct __lock __lock___env_recursive_mutex = { 0 };
-struct __lock __lock___tz_mutex = { 0 };
-struct __lock __lock___dd_hash_mutex = { 0 };
-struct __lock __lock___arc4random_mutex = { 0 };
-
-const struct __sFILE_fake __sf_fake_stdin;
-const struct __sFILE_fake __sf_fake_stdout;
-const struct __sFILE_fake __sf_fake_stderr;
-
-static thread_local struct
-{
-	struct _reent data;
-	bool ready;
-} reent_tls = { .ready = false };
-
-#endif
 
 static void __retarget_lock_init_once(struct __lock *lock)
 {
@@ -152,7 +201,7 @@ void __retarget_lock_init(_LOCK_T *lock)
 	(*lock)->value = 0;
 	(*lock)->count = 0;
 	(*lock)->marker = LIBC_LOCK_MARKER;
-	scheduler_futex_init(&(*lock)->futex, &(*lock)->value, 0);//SCHEDULER_FUTEX_PI | SCHEDULER_FUTEX_OWNER_TRACKING | SCHEDULER_FUTEX_CONTENTION_TRACKING);
+	scheduler_futex_init(&(*lock)->futex, &(*lock)->value, 0);
 }
 
 void __retarget_lock_init_recursive(_LOCK_T *lock)
@@ -300,15 +349,6 @@ void scheduler_switch_hook(struct task *task)
 {
 	/* Important to set the tls pointer first */
 	_set_tls(task->tls);
-
-#ifdef __REENT_SMALL
-	/* We may need to initialize the reent data, if it is already zero */
-	if (!reent_tls.ready)
-		_REENT_INIT_PTR_ZEROED(&reent_tls.data);
-
-	/* Let newlib know */
-	_impure_ptr = &reent_tls.data;
-#endif
 }
 
 static void SysTick_Handler(void)

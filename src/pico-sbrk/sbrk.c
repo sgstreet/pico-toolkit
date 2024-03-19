@@ -7,32 +7,35 @@
 
 #include <errno.h>
 #include <stdint.h>
-#include <stdatomic.h>
 #include <unistd.h>
+
+#include <sys/lock.h>
 
 extern uintptr_t end;
 extern uintptr_t __StackLimit;
 
-static atomic_uintptr_t brk = (uintptr_t)&end;
+static uintptr_t brk = (uintptr_t)&end;
 
 void *sbrk(ptrdiff_t incr)
 {
-	uintptr_t block = atomic_fetch_add(&brk, incr);
+	uintptr_t block;
 
-	if (incr < 0) {
-		if (block - (uintptr_t)&__StackLimit < -incr) {
-			atomic_fetch_sub(&brk, incr);
-			errno = ENOMEM;
-			return (void *)-1;
-		}
+	/* Protect the heap pointer */
+	__LIBC_LOCK();
+
+	uintptr_t new_brk = brk + incr;
+	if (new_brk >= (uintptr_t)&end || new_brk <= (uintptr_t)&__StackLimit) {
+		block = brk;
+		brk = new_brk;
 	} else {
-		if ((uintptr_t)&__StackLimit - block < incr) {
-			atomic_fetch_sub(&brk, incr);
-			errno = ENOMEM;
-			return (void *)-1;
-		}
+		errno = ENOMEM;
+		block = -1;
 	}
 
+	/* Good or bad let the lock go */
+	__LIBC_UNLOCK();
+
+	/* Most like success */
 	return (void *)block;
 }
 
