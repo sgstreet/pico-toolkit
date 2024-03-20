@@ -120,7 +120,6 @@ int main(int argc, char **argv)
 	scheduler_futex_init(&futex, &events, 0);
 
 	struct task_descriptor dump_task_desc = { .entry_point = dump_task, .context = 0, .priority = SCHEDULER_MAX_TASK_PRIORITY };
-	strncpy(dump_task_desc.name, "dump_task", TASK_NAME_LEN);
 	dump_task_id = scheduler_create(sbrk(1024), 1024, &dump_task_desc);
 	if (!dump_task_id) {
 		printf("failed to start dump_task\n");
@@ -128,7 +127,6 @@ int main(int argc, char **argv)
 	}
 
 	struct task_descriptor wake_counter_task_desc = { .entry_point = wake_counter_task, .context = &futex, .priority = SCHEDULER_MIN_TASK_PRIORITY / 4 };
-	strncpy(wake_counter_task_desc.name, "wake-counter", TASK_NAME_LEN);
 	wake_counter_id = scheduler_create(sbrk(1024), 1024, &wake_counter_task_desc);
 	if (!wake_counter_id) {
 		printf("failed to start wake_counter_task\n");
@@ -137,7 +135,6 @@ int main(int argc, char **argv)
 
 	for (int i = 0; i < NUM_HOGS; ++i) {
 		struct task_descriptor hog_task_desc = { .entry_point = hog_task, .context = &hogs[i], .priority = SCHEDULER_MIN_TASK_PRIORITY / 2 };
-		strncpy(hog_task_desc.name, "hog", TASK_NAME_LEN);
 		hogs[i].id = scheduler_create(sbrk(1024), 1024, &hog_task_desc);
 		if (!hogs[i].id) {
 			printf("failed to start hog %d\n", i);

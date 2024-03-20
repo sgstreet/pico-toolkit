@@ -988,7 +988,6 @@ struct task *scheduler_create(void *stack, size_t stack_size, const struct task_
 	sched_list_init(&task->owned_futexes);
 	task->current_queue = 0;
 	task->timer_expires = UINT32_MAX;
-	strncpy(task->name, descriptor->name, TASK_NAME_LEN);
 	task->base_priority = descriptor->priority;
 	task->current_priority = descriptor->priority;
 	task->exit_handler = descriptor->exit_handler;
@@ -1419,15 +1418,4 @@ enum task_state scheduler_get_state(struct task *task)
 	assert(task != 0 && task->marker == SCHEDULER_TASK_MARKER);
 
 	return task->state;
-}
-
-const char *scheduler_get_name(struct task *task)
-{
-	/* Use the current task if needed */
-	if (!task)
-		task = scheduler_task();
-
-	assert(task != 0 && task->marker == SCHEDULER_TASK_MARKER);
-
-	return task->name;
 }

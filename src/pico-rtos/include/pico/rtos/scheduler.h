@@ -140,7 +140,6 @@ typedef bool (*for_each_sched_node_t)(struct sched_list *node, void *context);
 
 struct task_descriptor
 {
-	char name[TASK_NAME_LEN];
 	task_entry_point_t entry_point;
 	task_exit_handler_t exit_handler;
 	void *context;
@@ -172,7 +171,6 @@ struct task
 
 	void *context;
 	task_exit_handler_t exit_handler;
-	char name[TASK_NAME_LEN];
 	atomic_ulong flags;
 
 	unsigned long marker;
@@ -251,6 +249,5 @@ void scheduler_clear_flags(struct task *task, unsigned long mask);
 unsigned long scheduler_get_flags(struct task *task);
 
 enum task_state scheduler_get_state(struct task *task);
-const char *scheduler_get_name(struct task *task);
 
 #endif
