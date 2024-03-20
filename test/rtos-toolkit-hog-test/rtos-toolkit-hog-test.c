@@ -8,9 +8,17 @@
 
 #include <picotls.h>
 
+#include <hardware/gpio.h>
+#include <hardware/uart.h>
+
+#include <pico/iob.h>
 #include <pico/platform.h>
 #include <pico/rtos.h>
 
+#define UART_ID uart0
+#define BAUD_RATE 115200
+#define UART_TX_PIN 0
+#define UART_RX_PIN 1
 #define NUM_HOGS 8
 
 struct hog
@@ -20,6 +28,9 @@ struct hog
 	unsigned int cores[NUM_CORES];
 };
 
+int picolibc_putc(char c, FILE *file);
+int picolibc_getc(FILE *file);
+
 struct hog hogs[NUM_HOGS] = { 0 };
 unsigned int kick_counter = 0;
 unsigned int wake_cores[NUM_CORES] = { 0, 0};
@@ -27,6 +38,34 @@ struct task *wake_counter_id = 0;
 struct task *dump_task_id = 0;
 long events = 0;
 struct futex futex;
+
+int picolibc_putc(char c, FILE *file)
+{
+	if (c == '\n')
+		uart_putc(UART_ID, '\r');
+
+	uart_putc(UART_ID, c);
+
+	return c;
+}
+
+int picolibc_getc(FILE *file)
+{
+	return uart_getc(UART_ID);
+}
+
+static __attribute__((constructor)) void console_init(void)
+{
+	/* Set up our UART with the required speed. */
+	uart_init(UART_ID, BAUD_RATE);
+
+	/*
+	 * Set the TX and RX pins by using the function select on the GPIO
+	 * Set datasheet for more information on function select
+	 */
+	gpio_set_function(UART_TX_PIN, GPIO_FUNC_UART);
+	gpio_set_function(UART_RX_PIN, GPIO_FUNC_UART);
+}
 
 static void wake_counter_task(void *context)
 {
