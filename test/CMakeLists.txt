@@ -1,1 +1,2 @@
-add_subdirectory(rtos-toolkit-hog-test)
+add_subdirectory(rtos-hog-test)
+add_subdirectory(rtos-threads-test)
