@@ -53,6 +53,9 @@
 
 #define SCHEDULER_IGNORE_VIABLE 0x00000001UL
 #define SCHEDULER_TASK_STACK_CHECK 0x00000002UL
+#define SCHEDULER_NO_TLS_INIT 0x00000004UL
+#define SCHEDULER_NO_FRAME_INIT 0x00000008UL
+#define SCHEDULER_PRIMORDIAL_TASK 0x00000010UL
 
 #define SCHEDULER_FUTEX_CONTENTION_TRACKING 0x00000001UL
 #define SCHEDULER_FUTEX_PI 0x00000002UL
@@ -197,11 +200,10 @@ struct scheduler
 	struct sched_list timers;
 	unsigned long timer_expires;
 
+	bool running;
 	atomic_int locked;
 	atomic_int critical;
 	int critical_counter;
-
-	atomic_int active_cores;
 
 	unsigned long marker;
 };

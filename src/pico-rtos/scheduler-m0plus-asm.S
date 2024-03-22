@@ -11,6 +11,7 @@
 
 declare_function SVC_Handler_0, .text
 
+	/* TODO FIXME I'm sure we need to adjust the stack pointer by 40 bytes for the scheduler frame. See scheduler_svc_handler */
 	/* Get the active stack pointer into r0 we should always be on the msp */
 	mov r0, sp
 
@@ -71,16 +72,23 @@ declare_function scheduler_svc_handler, .text
 	/* Do we need a scheduler frame */
 	movs r2, #2              /* Check to see is bit 2 is set, indicating we need a scheduler frame */
 	tst r1, r2
-	bne 1f                   /* We need a scheduler frame */
+	bne 0f                   /* We need a scheduler frame */
 
 	/* Forward to the handler who will do the return */
 	bx r1
 
-1:
+0:
 	bics r1, r2              /* Clear the scheduler frame request bit */
 
+	/* Adjust the stack point for frame is the caller was using the MSP */
+	movs       r3, #4
+	mov        r2, lr        /* This will also save the exec return */
+	tst        r3, r2        /* Test EXEC_RETURN for used stack */
+	bne        1f
+	sub        sp, #40
+1:
+
 	/* Save the current context */
-	mov r2, lr
 	mrs r3, control          /* Rember the control (mostly privilge state) */
 	subs r0, r0, #40         /* Reserve space for the remainder of the scheduler frame */
 	stmia r0!, {r2-r7}       /* Save the low registers */
@@ -108,7 +116,7 @@ function_alias SVC_Handler_8, scheduler_svc_handler
 
 declare_function PendSV_Handler, .text
 
-	/* First load the core location store pointer for this core */
+	/* First load the core location store pointer for this core, does not modify anything but r0 */
 	mov r1, lr
 	ldr r0, =__aeabi_read_cls
 	blx r0
@@ -135,6 +143,7 @@ declare_function PendSV_Handler, .text
 	b          1f
 0:
 	mrs        r0, msp       /* Move the main stack pointer to R0 */
+	sub        sp, #40
 1:
 
 	/* Save the current context */

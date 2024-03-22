@@ -915,8 +915,8 @@ struct scheduler_frame *scheduler_switch(struct scheduler_frame *frame)
 			scheduler_terminated_hook(task);
 		}
 
-		/* If no potential tasks, terminate the scheduler */
-		if (!scheduler_is_viable()) {
+		/* If no potential tasks, try to terminate the scheduler */
+		if (!scheduler_is_viable() && cls_datum(scheduler_initial_frame) != 0) {
 
 			/* The syscall will return ok */
 			cls_datum(scheduler_initial_frame)->r0 = 0;
@@ -981,7 +981,6 @@ struct task *scheduler_create(void *stack, size_t stack_size, const struct task_
 	/* Initialize the task and add to the scheduler task list */
 	struct task *task = stack;
 	task->marker = SCHEDULER_TASK_MARKER;
-	task->tls = (void *)task + ALIGNMENT_ROUND_TYPE(struct task, 8);
 	sched_list_init(&task->timer_node);
 	sched_list_init(&task->scheduler_node);
 	sched_list_init(&task->queue_node);
@@ -996,13 +995,15 @@ struct task *scheduler_create(void *stack, size_t stack_size, const struct task_
 	task->core = UINT32_MAX;
 
 	/* Build the scheduler frame to use the PSP and run in privileged mode */
-	task->psp = (struct scheduler_frame *)((((uintptr_t)stack) + stack_size - sizeof(struct scheduler_frame)) & ~7);
-	task->psp->exec_return = 0xfffffffd;
-	task->psp->control = CONTROL_SPSEL_Msk;
-	task->psp->pc = ((uint32_t)descriptor->entry_point & ~0x01UL);
-	task->psp->lr = 0;
-	task->psp->psr = xPSR_T_Msk;
-	task->psp->r0 = (uint32_t)task->context;
+	if ((descriptor->flags & SCHEDULER_NO_FRAME_INIT) == 0) {
+		task->psp = (struct scheduler_frame *)((((uintptr_t)stack) + stack_size - sizeof(struct scheduler_frame)) & ~7);
+		task->psp->exec_return = 0xfffffffd;
+		task->psp->control = CONTROL_SPSEL_Msk;
+		task->psp->pc = ((uint32_t)descriptor->entry_point & ~0x01UL);
+		task->psp->lr = 0;
+		task->psp->psr = xPSR_T_Msk;
+		task->psp->r0 = (uint32_t)task->context;
+	}
 
 #ifdef BUILD_TYPE_DEBUG
 	task->psp->r1 = 0xdead0001;
@@ -1019,23 +1020,48 @@ struct task *scheduler_create(void *stack, size_t stack_size, const struct task_
 	task->psp->r12 = 0xdead000c;
 #endif
 
-	/* Initialize the TLS block */
-	scheduler_tls_init_hook(task->tls);
+	/* Initialize the TLS pointer is not suppressed */
+	if ((descriptor->flags & SCHEDULER_NO_TLS_INIT) == 0) {
 
-	/* And now the stack marker */
-	task->stack_marker = task->tls + scheduler->tls_size;
+		/* Set the TLS pointer */
+		task->tls = (void *)task + ALIGNMENT_ROUND_TYPE(struct task, 8);
+
+		/* Initialize the TLS block */
+		scheduler_tls_init_hook(task->tls);
+
+		/* And now the stack marker */
+		task->stack_marker = task->tls + scheduler->tls_size;
+	}
 
 	/* Double check the stack marker */
 	assert(scheduler_check_stack(task));
 
-	/* Ask scheduler to create the new task */
+	/* Handle primordial task specially, bery hacky to support threads and pthreads initialization */
+	if (descriptor->flags & SCHEDULER_PRIMORDIAL_TASK) {
+
+		/* Add the task the scheduler list */
+		sched_list_push(&scheduler->tasks, &task->scheduler_node);
+
+		/* Mark as running */
+		task->state = TASK_RUNNING;
+		task->core = scheduler_current_core();
+		cls_datum(current_task) = task;
+
+		/* If the tls pointer was initialized, the forward to the switch hook */
+		if (task->tls != 0)
+			scheduler_switch_hook(task);
+
+		return task;
+	}
+
+	/* Ask scheduler to add the new task */
 	return (struct task *)svc_call1(SCHEDULER_CREATE_SVC, (uint32_t)task);
 }
 
 int scheduler_init(struct scheduler *new_scheduler, size_t tls_size)
 {
 	/* Make sure some memory was provided */
-	if (!new_scheduler || scheduler != 0) {
+	if (!new_scheduler) {
 		errno = EINVAL;
 		return -EINVAL;
 	}
@@ -1062,6 +1088,13 @@ int scheduler_init(struct scheduler *new_scheduler, size_t tls_size)
 	sched_list_init(&new_scheduler->timers);
 	sched_list_init(&new_scheduler->tasks);
 
+	/* Allow a scheduler restart */
+	cls_datum(scheduler_initial_frame) = 0;
+	cls_datum(current_task) = 0;
+	cls_datum(slice_expires) = INT32_MAX;
+	cls_datum(ticks) = 0;
+	memset(cls_datum_ptr(deferred_wake), 0, sizeof(deferred_wake));
+
 	/* Save a scheduler singleton */
 	scheduler = new_scheduler;
 
@@ -1077,25 +1110,20 @@ int scheduler_run(void)
 		return -EINVAL;
 	}
 
-	/* Update the active cores */
-	atomic_fetch_add(&scheduler->active_cores, 1);
-
 	/* Forward start hook */
 	scheduler_run_hook(true);
 
 	/* We only return from this when the scheduler is shutdown */
+	scheduler->running = true;
 	int result = svc_call0(SCHEDULER_START_SVC);
 	if (result < 0) {
 		errno = -result;
 		return result;
 	}
+	scheduler->running = false;
 
 	/* Forward exit hook */
 	scheduler_run_hook(false);
-
-	/* Clear the scheduler singleton, if this is the last core out, to restart reinitialize */
-	if (atomic_fetch_sub(&scheduler->active_cores, 1) == 1)
-		scheduler = 0;
 
 	/* All done */
 	return 0;
@@ -1104,7 +1132,7 @@ int scheduler_run(void)
 bool scheduler_is_running(void)
 {
 	/* We are running if the initial frame has be set by the start service call */
-	return scheduler != 0 && cls_datum(scheduler_initial_frame) != 0;
+	return scheduler != 0 && scheduler->running;
 }
 
 unsigned long scheduler_enter_critical(void)
@@ -1230,7 +1258,7 @@ int scheduler_suspend(struct task *task)
 	if (!task)
 		task = scheduler_task();
 
-	if (scheduler->active_cores > 1 && task != scheduler_task()) {
+	if (scheduler_num_cores() > 1 && task != scheduler_task()) {
 		errno = EINVAL;
 		return -errno;
 	}
@@ -1265,7 +1293,7 @@ int scheduler_terminate(struct task *task)
 	if (!task)
 		task = scheduler_task();
 
-	if (scheduler->active_cores > 1 && task != scheduler_task()) {
+	if (scheduler_num_cores() > 1 && task != scheduler_task()) {
 		errno = EINVAL;
 		return -errno;
 	}
