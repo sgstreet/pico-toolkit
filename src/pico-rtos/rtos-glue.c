@@ -43,8 +43,6 @@ void scheduler_spin_unlock_irqrestore(unsigned int state);
 static atomic_ulong scheduler_spinlock = 0;
 
 static exception_handler_t old_systick_handler = 0;
-static exception_handler_t old_pendsv_handler = 0;
-static exception_handler_t old_svc_handler = 0;
 
 static core_local void *old_tls = { 0 };
 
@@ -175,9 +173,7 @@ void scheduler_run_hook(bool start)
 		NVIC_SetPriority(SVCall_IRQn, SCHEDULER_SVC_PRIORITY);
 		NVIC_SetPriority(SysTick_IRQn, SCHEDULER_SVC_PRIORITY);
 
-		/* Now install the handlers */
-		old_pendsv_handler = exception_set_exclusive_handler(PendSV_IRQn, PendSV_Handler);
-		old_svc_handler = exception_set_exclusive_handler(SVCall_IRQn, SVC_Handler);
+		/* We need to install a systick handler */
 		old_systick_handler = exception_set_exclusive_handler(SysTick_IRQn, SysTick_Handler);
 
 		/* Save the initial tls pointer */
@@ -196,10 +192,8 @@ void scheduler_run_hook(bool start)
 		/* Restore the initial tls pointer */
 		_set_tls(cls_datum(old_tls));
 
-		/* Restore the old handlers */
+		/* Restore the old systick handler */
 		exception_restore_handler(SysTick_IRQn, old_systick_handler);
-		exception_restore_handler(SVCall_IRQn, old_svc_handler);
-		exception_restore_handler(PendSV_IRQn, old_pendsv_handler);
 	}
 }
 
