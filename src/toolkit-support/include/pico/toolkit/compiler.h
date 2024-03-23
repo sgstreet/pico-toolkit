@@ -96,12 +96,35 @@
 #define __packed __attribute__((packed))
 #endif
 
+#ifndef likely
 #define likely(x) __builtin_expect(!!(x), 1)
+#endif
+
+#ifndef unlikely
 #define unlikely(x) __builtin_expect(!!(x), 0)
+#endif
 
+#ifndef array_sizeof
 #define array_sizeof(array) (sizeof(array) / sizeof((array)[0]) + sizeof(typeof(int[1 - 2 * !!__builtin_types_compatible_p(typeof(array), typeof(&array[0]))])) * 0)
+#endif
 
+#ifndef barrier
 #define barrier() do { asm volatile ("" : : : "memory"); } while (0)
+#endif
+
+
+
+#ifndef container_of
+#define container_of(ptr, type, member) ({ \
+        const typeof(((type *)0)->member) *__mptr = (ptr);    \
+        (type *)((char *)__mptr - offsetof(type, member));})
+#endif
+
+#ifndef container_of_or_null
+#define container_of_or_null(ptr, type, member) ({ \
+        const typeof(((type *)0)->member) *__mptr = (ptr);    \
+        __mptr ? (type *)((char *)__mptr - offsetof(type, member)) : 0;})
+#endif
 
 #define PREINIT_PRIORITY(PRIORITY) ".preinit_array.00" #PRIORITY
 #define PREINIT_SECTION(SECTION) ".preinit_array." #SECTION

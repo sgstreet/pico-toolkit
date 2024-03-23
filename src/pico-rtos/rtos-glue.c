@@ -14,8 +14,7 @@
 #include <pico/tls.h>
 #include <pico/retarget-lock.h>
 
-#include "compiler.h"
-#include "cmsis.h"
+#include <pico/toolkit/cmsis.h>
 
 #define LIBC_LOCK_MARKER 0x89988998
 //#define MULTICORE

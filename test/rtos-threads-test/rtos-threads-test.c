@@ -5,6 +5,8 @@
 #include <stdatomic.h>
 #include <stdio.h>
 
+#include <pico/toolkit/compiler.h>
+
 #include <hardware/gpio.h>
 #include <hardware/uart.h>
 
@@ -40,7 +42,7 @@ int picolibc_getc(FILE *file)
 	return uart_getc(UART_ID);
 }
 
-static __attribute__((constructor)) void console_init(void)
+__constructor void console_init(void)
 {
 	/* Set up our UART with the required speed. */
 	uart_init(UART_ID, BAUD_RATE);

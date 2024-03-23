@@ -16,10 +16,10 @@
 
 #include <pico/tls.h>
 
+#include <pico/toolkit/cmsis.h>
 #include <pico/rtos/scheduler.h>
 
 #include "svc.h"
-#include "cmsis.h"
 
 #define SCHEDULER_START_SVC 0
 #define SCHEDULER_CREATE_SVC 1

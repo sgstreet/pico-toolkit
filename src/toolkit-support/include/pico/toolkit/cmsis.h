@@ -3,7 +3,7 @@
 
 #include <RP2040.h>
 
-#include "compiler.h"
+#include <pico/toolkit/compiler.h>
 
 static __always_inline inline uint32_t disable_interrupts(void)
 {

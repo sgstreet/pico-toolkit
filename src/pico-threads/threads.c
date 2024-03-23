@@ -5,14 +5,7 @@
 #include <threads.h>
 
 #include <pico/tls.h>
-
-#ifndef __weak
-#define __weak __attribute__((weak))
-#endif
-
-#ifndef __noreturn
-#define __noreturn __attribute__((noreturn))
-#endif
+#include <pico/toolkit/compiler.h>
 
 struct arguments
 {

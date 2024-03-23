@@ -11,18 +11,10 @@
 #include <stdlib.h>
 #include <stdatomic.h>
 
-#include <RP2040.h>
+#include <pico/toolkit/cmsis.h>
 
 #include <pico/platform.h>
 #include <pico/retarget-lock.h>
-
-#ifndef __alias
-#define __alias(name) __attribute__((alias(name)))
-#endif
-
-#ifndef __weak
-#define __weak __attribute__((weak))
-#endif
 
 #ifdef _RETARGETABLE_LOCKING
 

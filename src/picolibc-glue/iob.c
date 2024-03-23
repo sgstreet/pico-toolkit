@@ -1,12 +1,6 @@
+#include <pico/toolkit/compiler.h>
+
 #include <pico/iob.h>
-
-#ifndef __alias
-#define __alias(name) __attribute__((alias(name)))
-#endif
-
-#ifndef __weak
-#define __weak __attribute__((weak))
-#endif
 
 extern int picolibc_putc(char c, FILE *file);
 extern int picolibc_getc(FILE *file);

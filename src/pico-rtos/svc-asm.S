@@ -11,7 +11,7 @@
  *     Author: Stephen Street (stephen@redrocketcomputing.com)
  */
 
-#include "asm.h"
+#include <pico/toolkit/asm.h>
 
 	.section .data.__svc_vector
 	.align 2

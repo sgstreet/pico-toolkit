@@ -7,6 +7,8 @@
 
 #include <string.h>
 
+#include <pico/toolkit/compiler.h>
+
 #include <pico/tls.h>
 
 extern char __core_data[];
@@ -25,7 +27,7 @@ extern char __tls_size;
 
 core_local void *_tls = 0;
 
-__attribute__((naked)) void *__aeabi_read_cls(void)
+__naked void *__aeabi_read_cls(void)
 {
 	asm volatile (
 		".syntax unified\n"
@@ -40,7 +42,7 @@ __attribute__((naked)) void *__aeabi_read_cls(void)
 		"mov pc, lr\n"
 	);}
 
-__attribute__((naked)) void *__aeabi_read_core_cls(unsigned long core)
+__naked void *__aeabi_read_core_cls(unsigned long core)
 {
 	asm volatile (
 		".syntax unified\n"
@@ -54,7 +56,7 @@ __attribute__((naked)) void *__aeabi_read_core_cls(unsigned long core)
 	);
 }
 
-__attribute__((naked)) void *__aeabi_read_tp(void)
+__naked void *__aeabi_read_tp(void)
 {
 	asm volatile (
 		".syntax unified\n"

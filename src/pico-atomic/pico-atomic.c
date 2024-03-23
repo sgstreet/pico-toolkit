@@ -6,6 +6,7 @@
 
 #include <stdbool.h>
 #include <stdint.h>
+#include <pico/toolkit/compiler.h>
 
 #include "hardware/address_mapped.h"
 #include "hardware/regs/watchdog.h"
@@ -13,10 +14,6 @@
 #include "hardware/sync.h"
 
 #include "pico/config.h"
-
-#ifndef __optimize
-#define __optimize __attribute__((optimize("-Os")))
-#endif
 
 /* Must be powers of 2 */
 #define ATOMIC_STRIPE 4UL
@@ -31,7 +28,7 @@ static void __atomic_init(void)
 {
 	*ATOMIC_LOCK_REG = 0;
 }
-static __attribute__((used, section(".preinit_array.00030"))) void *preinit_atomic_init = __atomic_init;
+PREINIT_WITH_PRIORITY(__atomic_init, 030);
 
 /* 
 	To eliminate interference with existing hardware spinlock usage and reduce multicore contention on

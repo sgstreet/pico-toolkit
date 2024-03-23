@@ -7,7 +7,7 @@
  *     Author: Stephen Street (stephen@redrocketcomputing.com)
  */
 
-#include "asm.h"
+#include <pico/toolkit/asm.h>
 
 declare_function SVC_Handler_0, .text
 
