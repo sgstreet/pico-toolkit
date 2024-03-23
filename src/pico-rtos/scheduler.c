@@ -555,8 +555,8 @@ void scheduler_resume_svc(struct exception_frame *frame)
 		/* Remove any blocking queue */
 		sched_queue_remove(task);
 
-		/* Clear the return so we can indicate no timeout */
-		task->psp->r0 = 0;
+		/* Sleeping tasks walkup early with no error, while waiting tasks return canceled */
+		task->psp->r0 = state == TASK_BLOCKED ? -ECANCELED : 0;
 
 		/* Push on the ready queue */
 		task->state = TASK_READY;
