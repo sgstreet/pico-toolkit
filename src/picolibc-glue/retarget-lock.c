@@ -14,7 +14,7 @@
 #include <pico/toolkit/cmsis.h>
 
 #include <pico/platform.h>
-#include <pico/retarget-lock.h>
+#include <pico/toolkit/retarget-lock.h>
 
 #ifdef _RETARGETABLE_LOCKING
 

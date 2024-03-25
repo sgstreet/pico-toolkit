@@ -4,7 +4,7 @@
 #include <string.h>
 #include <threads.h>
 
-#include <pico/tls.h>
+#include <pico/toolkit/tls.h>
 #include <pico/toolkit/compiler.h>
 
 struct arguments

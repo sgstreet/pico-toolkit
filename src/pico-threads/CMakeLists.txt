@@ -9,7 +9,7 @@ target_sources(pico_threads INTERFACE
 target_include_directories(pico_threads_headers INTERFACE ${CMAKE_CURRENT_LIST_DIR}/include)
 
 target_link_libraries(pico_threads INTERFACE
-	pico_rtos 
+	pico_scheduler
 )
 
 endif()

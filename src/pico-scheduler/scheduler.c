@@ -14,10 +14,9 @@
 #include <limits.h>
 #include <time.h>
 
-#include <pico/tls.h>
-
 #include <pico/toolkit/cmsis.h>
-#include <pico/rtos/scheduler.h>
+#include <pico/toolkit/tls.h>
+#include <pico/toolkit/scheduler.h>
 
 #include "svc.h"
 

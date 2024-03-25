@@ -12,9 +12,9 @@
 #include <hardware/gpio.h>
 #include <hardware/uart.h>
 
-#include <pico/iob.h>
 #include <pico/platform.h>
-#include <pico/rtos.h>
+#include <pico/toolkit/iob.h>
+#include <pico/toolkit/scheduler.h>
 
 #define UART_ID uart0
 #define BAUD_RATE 115200

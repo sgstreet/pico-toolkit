@@ -11,7 +11,7 @@
 
 #include <picotls.h>
 
-#include <pico/rtos.h>
+#include <pico/toolkit/scheduler.h>
 
 #ifndef container_of
 #define container_of(ptr, type, member) __containerof(ptr, type, member)

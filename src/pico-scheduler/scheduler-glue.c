@@ -10,11 +10,12 @@
 #include <hardware/exception.h>
 #include <hardware/address_mapped.h>
 #include <hardware/regs/sio.h>
-#include <pico/rtos/scheduler.h>
-#include <pico/tls.h>
-#include <pico/retarget-lock.h>
 
 #include <pico/toolkit/cmsis.h>
+#include <pico/toolkit/scheduler.h>
+#include <pico/toolkit/tls.h>
+#include <pico/toolkit/retarget-lock.h>
+
 
 #define LIBC_LOCK_MARKER 0x89988998
 //#define MULTICORE
@@ -150,7 +151,6 @@ void scheduler_tls_init_hook(void *tls)
 
 void scheduler_switch_hook(struct task *task)
 {
-	/* Important to set the tls pointer first */
 	_set_tls(task->tls);
 }
 

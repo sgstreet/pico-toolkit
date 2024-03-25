@@ -6,11 +6,8 @@ target_link_libraries(rtos-hog-test
 	hardware_gpio
 	hardware_uart
 	cmsis_core
-	pico_atomic
-	pico_tls
-	picolibc_glue
 	pico_unique_id
-	pico_rtos
+	pico_scheduler
 	pico_runtime
 )
 

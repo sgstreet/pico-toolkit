@@ -1,17 +1,17 @@
-if (NOT TARGET pico_rtos)
+if (NOT TARGET pico_scheduler)
 
-pico_add_library(pico_rtos)
+pico_add_library(pico_scheduler)
 
-target_sources(pico_rtos INTERFACE
-    ${CMAKE_CURRENT_LIST_DIR}/rtos-glue.c
+target_sources(pico_scheduler INTERFACE
+    ${CMAKE_CURRENT_LIST_DIR}/scheduler-glue.c
     ${CMAKE_CURRENT_LIST_DIR}/scheduler.c
     ${CMAKE_CURRENT_LIST_DIR}/scheduler-m0plus-asm.S
     ${CMAKE_CURRENT_LIST_DIR}/svc-asm.S
 )
 
-target_include_directories(pico_rtos_headers INTERFACE ${CMAKE_CURRENT_LIST_DIR}/include)
+target_include_directories(pico_scheduler_headers INTERFACE ${CMAKE_CURRENT_LIST_DIR}/include)
 
-target_link_libraries(pico_rtos INTERFACE 
+target_link_libraries(pico_scheduler INTERFACE 
 	hardware_exception
 	hardware_uart
 	hardware_clocks

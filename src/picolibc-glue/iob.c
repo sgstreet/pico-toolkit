@@ -1,6 +1,6 @@
 #include <pico/toolkit/compiler.h>
 
-#include <pico/iob.h>
+#include <pico/toolkit/iob.h>
 
 extern int picolibc_putc(char c, FILE *file);
 extern int picolibc_getc(FILE *file);

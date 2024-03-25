@@ -8,7 +8,7 @@
 #include <pico/toolkit/compiler.h>
 #include <pico/toolkit/linked-list.h>
 #include <pico/toolkit/spinlock.h>
-#include <pico/rtos.h>
+#include <pico/toolkit/scheduler.h>
 
 #include <cmsis/cmsis_os2.h>
 

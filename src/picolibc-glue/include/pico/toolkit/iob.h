@@ -3,6 +3,8 @@
 
 #include <stdio.h>
 
+#include <pico/toolkit/compiler.h>
+
 #ifndef __always_inline
 #define __always_inline __attribute__((always_inline))
 #endif

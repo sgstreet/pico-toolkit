@@ -9,7 +9,7 @@
 
 #include <pico/toolkit/compiler.h>
 
-#include <pico/tls.h>
+#include <pico/toolkit/tls.h>
 
 extern char __core_data[];
 extern char __core_data_size[];
