@@ -95,6 +95,8 @@ def_service_handler SVC_Handler_30
 def_service_handler SVC_Handler_31
 
 declare_function SVC_Handler, .text
+	.fnstart
+
 	/* Load the active stack into r1 */
 	movs r0, #4
 	mov r1, lr
@@ -119,5 +121,6 @@ declare_function SVC_Handler, .text
 	/* Invoke the service handler who will return from the service call */
 	bx r2
 
+	.fnend
 	.pool
 	.size SVC_Handler, . - SVC_Handler

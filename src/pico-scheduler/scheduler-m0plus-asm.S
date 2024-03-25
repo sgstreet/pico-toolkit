@@ -10,6 +10,7 @@
 #include <pico/toolkit/asm.h>
 
 declare_function SVC_Handler_0, .text
+	.fnstart
 
 	/* TODO FIXME I'm sure we need to adjust the stack pointer by 40 bytes for the scheduler frame. See scheduler_svc_handler */
 	/* Get the active stack pointer into r0 we should always be on the msp */
@@ -55,6 +56,7 @@ declare_function SVC_Handler_0, .text
 	/* We should go into the scheduler and only return on scheduler exit */
 	bx r2
 
+	.fnend
 	.pool
 	.size SVC_Handler_0, . - SVC_Handler_0
 
@@ -102,6 +104,7 @@ declare_function scheduler_svc_handler, .text
 	/* Forward to the handler who will return */
 	bx r1
 
+	.fnend
 	.pool
 	.size scheduler_svc_handler, . - scheduler_svc_handler
 
@@ -115,6 +118,7 @@ function_alias SVC_Handler_7, scheduler_svc_handler
 function_alias SVC_Handler_8, scheduler_svc_handler
 
 declare_function PendSV_Handler, .text
+	.fnstart
 
 	/* First load the core location store pointer for this core, does not modify anything but r0 */
 	mov r1, lr
@@ -190,5 +194,6 @@ declare_function PendSV_Handler, .text
 	isb
 	bx r2
 
+	.fnend
 	.pool
 	.size PendSV_Handler, . - PendSV_Handler
