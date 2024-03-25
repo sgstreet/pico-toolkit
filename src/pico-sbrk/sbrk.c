@@ -23,7 +23,9 @@ void *sbrk(ptrdiff_t incr)
 	/* Protect the heap pointer */
 	__LIBC_LOCK();
 
-	uintptr_t new_brk = brk + incr;
+	/* Move to new break, ensuring that the break pointer is always align on a 8 byte boundary */
+	uintptr_t new_brk = brk + ((incr + 7) & ~7);
+
 	if (new_brk >= (uintptr_t)&end || new_brk <= (uintptr_t)&__StackLimit) {
 		block = brk;
 		brk = new_brk;
