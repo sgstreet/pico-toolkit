@@ -99,8 +99,9 @@ static void hog_task(void *context)
 static void dump_task(void *context)
 {
 	/* Dump hog info */
+	int counter = 0;
 	while (true) {
-		printf("---\n");
+		printf("--- %d\n", counter++);
 		printf("\twake = [%u, %u, %u]\n", kick_counter, wake_cores[0], wake_cores[1]);
 		for (int i = 0; i < NUM_HOGS; ++i)
 			printf("\thog[%d] = [%u, %u]\n", i, hogs[i].cores[0], hogs[i].cores[1]);

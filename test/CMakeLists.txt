@@ -1,5 +1,8 @@
 add_subdirectory(rtos-hog-test)
+add_subdirectory(rtos-multicore-hog-test)
 add_subdirectory(rtos-threads-test)
+add_subdirectory(rtos-multicore-threads-test)
 add_subdirectory(cmsis-rtos2-validation)
 add_subdirectory(backtrace-test)
 add_subdirectory(fault-test)
+add_subdirectory(multicore-irq-test)

@@ -38,7 +38,7 @@
 
 #define SCHEDULER_PENDSV_PRIORITY (SCHEDULER_MIN_IRQ_PRIORITY)
 #define SCHEDULER_SVC_PRIORITY (SCHEDULER_MIN_IRQ_PRIORITY - 1)
-#define SCHEDULER_SYSTICK_PRIORITY (SCHEDULER_REALTIME_IRQ_PRIORITY)
+#define SCHEDULER_SYSTICK_PRIORITY (SCHEDULER_MIN_IRQ_PRIORITY - 2)
 
 #define SCHEDULER_NUM_TASK_PRIORITIES 64UL
 #define SCHEDULER_MAX_TASK_PRIORITY 0UL
@@ -56,6 +56,7 @@
 #define SCHEDULER_NO_TLS_INIT 0x00000004UL
 #define SCHEDULER_NO_FRAME_INIT 0x00000008UL
 #define SCHEDULER_PRIMORDIAL_TASK 0x00000010UL
+#define SCHEDULER_CORE_AFFINITY 0x00000010UL
 
 #define SCHEDULER_FUTEX_CONTENTION_TRACKING 0x00000001UL
 #define SCHEDULER_FUTEX_PI 0x00000002UL
@@ -148,6 +149,7 @@ struct task_descriptor
 	void *context;
 	unsigned long flags;
 	unsigned long priority;
+	unsigned long affinity;
 };
 
 struct task
@@ -158,7 +160,8 @@ struct task
 	unsigned long *stack_marker;
 
 	enum task_state state;
-	int core;
+	unsigned long core;
+	unsigned long affinity;
 
 	unsigned long base_priority;
 	unsigned long current_priority;
@@ -200,7 +203,7 @@ struct scheduler
 	struct sched_list timers;
 	unsigned long timer_expires;
 
-	bool running;
+	atomic_int running;
 	atomic_int locked;
 	atomic_int critical;
 	int critical_counter;

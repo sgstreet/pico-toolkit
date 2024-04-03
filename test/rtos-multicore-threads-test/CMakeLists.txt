@@ -1,0 +1,19 @@
+add_executable(rtos-multicore-threads-test rtos-threads-test.c)
+
+pico_set_linker_script(rtos-multicore-threads-test ${PICO_TOOLKIT_PATH}/src/picolibc-glue/pico-toolkit-flash.ld)
+
+target_link_libraries(rtos-multicore-threads-test
+	hardware_gpio
+	hardware_uart
+	cmsis_core
+	pico_atomic
+	pico_tls
+	picolibc_glue
+	pico_scheduler
+	multicore_support
+	pico_threads
+	pico_fault
+	pico_runtime
+)
+
+pico_add_extra_outputs(rtos-multicore-threads-test)

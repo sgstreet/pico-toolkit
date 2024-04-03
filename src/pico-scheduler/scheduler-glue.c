@@ -1,7 +1,6 @@
 #include <assert.h>
 #include <errno.h>
 #include <stdlib.h>
-
 #include <stdatomic.h>
 
 #include <sys/lock.h>
@@ -18,7 +17,6 @@
 
 
 #define LIBC_LOCK_MARKER 0x89988998
-//#define MULTICORE
 
 struct __rtos_runtime_lock
 {
@@ -34,15 +32,15 @@ extern void SVC_Handler(void);
 
 void scheduler_switch_hook(struct task *task);
 void scheduler_tls_init_hook(void *tls);
-void scheduler_run_hook(bool start);
+void scheduler_startup_hook(void);
+void scheduler_shutdown_hook(void);
 void scheduler_spin_lock(void);
 void scheduler_spin_unlock(void);
 unsigned int scheduler_spin_lock_irqsave(void);
 void scheduler_spin_unlock_irqrestore(unsigned int state);
 
-static atomic_ulong scheduler_spinlock = 0;
-
-static exception_handler_t old_systick_handler = 0;
+extern __weak void multicore_startup_hook(void);
+extern __weak void multicore_shutdown_hook(void);
 
 static core_local void *old_tls = { 0 };
 
@@ -151,7 +149,7 @@ void scheduler_tls_init_hook(void *tls)
 
 void scheduler_switch_hook(struct task *task)
 {
-	_set_tls(task->tls);
+	_set_tls(task != 0 ? task->tls : 0);
 }
 
 static void SysTick_Handler(void)
@@ -163,105 +161,39 @@ static void SysTick_Handler(void)
 	scheduler_tick();
 }
 
-void scheduler_run_hook(bool start)
+void scheduler_startup_hook(void)
 {
-	if (start) {
+	/* First set the rtos system exception priority */
+	NVIC_SetPriority(PendSV_IRQn, SCHEDULER_PENDSV_PRIORITY);
+	NVIC_SetPriority(SVCall_IRQn, SCHEDULER_SVC_PRIORITY);
+	NVIC_SetPriority(SysTick_IRQn, SCHEDULER_SYSTICK_PRIORITY);
 
-		/* First set the rtos system exception priority */
-		NVIC_SetPriority(PendSV_IRQn, SCHEDULER_PENDSV_PRIORITY);
-		NVIC_SetPriority(SVCall_IRQn, SCHEDULER_SVC_PRIORITY);
-		NVIC_SetPriority(SysTick_IRQn, SCHEDULER_SVC_PRIORITY);
+	/* Disable deep sleep wake and generate a SEV on pending interrupts*/
+	SCB->SCR = SCB_SCR_SEVONPEND_Msk;
 
-		/* We need to install a systick handler */
-		old_systick_handler = exception_set_exclusive_handler(SysTick_IRQn, SysTick_Handler);
+	/* We need to install a systick handler */
+	exception_set_exclusive_handler(SysTick_IRQn, SysTick_Handler);
 
-		/* Save the initial tls pointer */
-		cls_datum(old_tls) = __aeabi_read_tp();
+	/* Save the initial tls pointer */
+	cls_datum(old_tls) = __aeabi_read_tp();
 
-		/* Initialize the system tick at 1ms for this core */
-		SysTick->LOAD  = (SystemCoreClock / 1000) - 1UL;
-		SysTick->VAL   = 0UL;
-		SysTick->CTRL  = SysTick_CTRL_CLKSOURCE_Msk | SysTick_CTRL_TICKINT_Msk | SysTick_CTRL_ENABLE_Msk;
+	/* Initialize the system tick at 1ms for this core */
+	SysTick->LOAD  = (SystemCoreClock / 1000) - 1UL;
+	SysTick->VAL   = 0UL;
+	SysTick->CTRL  = SysTick_CTRL_CLKSOURCE_Msk | SysTick_CTRL_TICKINT_Msk | SysTick_CTRL_ENABLE_Msk;
 
-	} else {
-
-		/* Disable the systick */
-		SysTick->CTRL = 0;
-
-		/* Restore the initial tls pointer */
-		_set_tls(cls_datum(old_tls));
-
-		/* Restore the old systick handler */
-		exception_restore_handler(SysTick_IRQn, old_systick_handler);
-	}
+	/* Optionally pass to the multicore hook */
+	multicore_startup_hook();
 }
 
-#ifdef MULTICORE
-
-void scheduler_spin_lock()
+void scheduler_shutdown_hook(void)
 {
-	uint16_t ticket = atomic_fetch_add(&scheduler_spinlock, 1UL << 16) >> 16;
-	while ((atomic_load(*scheduler_spinlock) & 0xffff) != ticket);
+	/* Disable the systick */
+	SysTick->CTRL = 0;
+
+	/* Restore the initial tls pointer */
+	_set_tls(cls_datum(old_tls));
+
+	/* Optionally pass to the multicore hook */
+	multicore_shutdown_hook();
 }
-
-void scheduler_spin_unlock(void)
-{
-	atomic_fetch_add((uint16_t *)scheduler_spinlock, 1);
-}
-
-unsigned int scheduler_spin_lock_irqsave(void)
-{
-	uint32_t state = disable_interrupts();
-	scheduler_spin_lock();
-	return state;
-}
-
-void scheduler_spin_unlock_irqrestore(unsigned int state)
-{
-	scheduler_spin_unlock(spinlock);
-	enable_interrupts(state);
-}
-
-unsigned long scheduler_num_cores(void)
-{
-	return NUM_CORES;
-}
-
-unsigned long scheduler_current_core(void)
-{
-	return *((io_ro_32 *)(SIO_BASE + SIO_CPUID_OFFSET));
-}
-
-extern void multicore_post(uintptr_t event);
-
-void scheduler_request_switch(unsigned long core)
-{
-	/* Current core? */
-	if (core == scheduler_current_core()) {
-		SCB->ICSR = SCB_ICSR_PENDSVSET_Msk;
-		return;
-	}
-
-	/* System interrupt must be sent directly to the other core */
-	multicore_post(0x90000000 | (PendSV_IRQn + 16));
-}
-
-static void multicore_trap(void)
-{
-	abort();
-}
-
-void init_fault(void);
-void init_fault(void)
-{
-	multicore_post((uintptr_t)multicore_trap);
-}
-
-static void mulitcore_scheduler_run(struct async *async)
-{
-	/* start the scheduler running */
-	scheduler_run();
-}
-static struct async multicore_scheduler_async;
-
-#endif

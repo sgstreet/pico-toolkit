@@ -9,6 +9,7 @@ target_link_libraries(rtos-threads-test
 	pico_atomic
 	pico_tls
 	picolibc_glue
+	pico_fault
 	pico_scheduler
 	pico_threads
 	pico_runtime

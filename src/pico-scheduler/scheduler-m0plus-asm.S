@@ -1,8 +1,6 @@
 /*
  * Copyright (C) 2022 Stephen Street
  *
- * preemt-sched-asm.S
- *
  * Created on: Feb 9, 2017
  *     Author: Stephen Street (stephen@redrocketcomputing.com)
  */

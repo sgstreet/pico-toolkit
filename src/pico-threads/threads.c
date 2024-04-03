@@ -20,7 +20,7 @@ extern void _thrd_release(void *ptr);
 extern void *_thrd_alloc_thrd(void);
 extern void _thrd_release_thrd(void *thrd);
 
-extern void scheduler_run_hook(bool start);
+extern void scheduler_startup_hook(void);
 
 static struct tss tss_map[__THRD_KEYS_MAX] = { [0 ... __THRD_KEYS_MAX - 1] = { .used = false, .destructor = 0 } };
 
@@ -30,6 +30,7 @@ static cnd_t thrds_reap;
 static mtx_t thrds_lock;
 static struct linked_list thrds;
 
+static struct scheduler scheduler;
 static thread_local struct thrd *current_thrd = 0;
 static thread_local void *thrd_tss[__THRD_KEYS_MAX];
 
@@ -102,6 +103,7 @@ static int _cnd_wait(cnd_t *cnd, mtx_t *mtx, unsigned long msec)
 
 	mtx_unlock(cnd->mutex);
 	int status = scheduler_futex_wait(&cnd->futex, sequence, msec);
+	assert(scheduler_task() != 0);
 	mtx_lock(cnd->mutex);
 
 	/* Did we timeout or have an error */
@@ -219,6 +221,7 @@ static int _mtx_lock(mtx_t *mtx, unsigned long msec)
 
 	/* Handle recursive locks */
 	long value = (long)scheduler_task();
+	assert(value != 0);
 	if (value == (mtx->value & ~SCHEDULER_FUTEX_CONTENTION_TRACKING)) {
 		if ((mtx->type & mtx_recursive) == 0) {
 			errno = EINVAL;
@@ -384,7 +387,6 @@ static void thrd_exit_handler(struct task *task)
 static void thrds_init(void)
 {
 	/* Initialize the scheduler */
-	static struct scheduler scheduler;
 	scheduler_init(&scheduler, _tls_size());
 
 	/* Setup the the threads list for cleanup support */
@@ -426,15 +428,12 @@ static void thrds_init(void)
 	/* Initialize the thread local */
 	current_thrd = thread;
 
-	/* Now startup the scheduler by call the run hook and mark as running */
-	scheduler_run_hook(true);
+	/* Now startup the scheduler by call the start hook and mark as running */
+	scheduler_startup_hook();
 	scheduler.running = true;
 
 	/* Now yield which send us through the scheduler and return here */
 	scheduler_yield();
-
-	static int marker = 0;
-	marker = 1;
 }
 
 int	_thrd_create(thrd_t *thrd, int (*func)(void *), void *arg, struct thrd_attr *attr)

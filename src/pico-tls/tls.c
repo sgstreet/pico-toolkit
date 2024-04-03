@@ -7,8 +7,9 @@
 
 #include <string.h>
 
-#include <pico/toolkit/compiler.h>
+#include <pico/platform.h>
 
+#include <pico/toolkit/compiler.h>
 #include <pico/toolkit/tls.h>
 
 extern char __core_data[];
@@ -86,13 +87,16 @@ void _init_tls(void *tls)
 
 void _cls_tls_init(void)
 {
-	/* Load the core local blocks */
-	memcpy(__aeabi_read_cls(), __core_data, (size_t)__core_data_size);
+	for (unsigned long core = 0; core < NUM_CORES; ++core) {
 
-	/* Initialize both cores initial TLS blocks */
-	_init_tls(__aeabi_read_cls() + (size_t)__tls_block_offset);
+		/* Load the core local blocks */
+		memcpy(__aeabi_read_core_cls(core), __core_data, (size_t)__core_data_size);
 
-	/* Initialize the core local tls blocks */
-	cls_datum(_tls) = __aeabi_read_cls() + (size_t)__tls_block_offset - ((size_t)&__arm32_tls_tcb_offset);
+		/* Initialize both cores initial TLS blocks */
+		_init_tls(__aeabi_read_core_cls(core) + (size_t)__tls_block_offset);
+
+		/* Initialize the core local tls blocks */
+		cls_datum_core(core, _tls) = __aeabi_read_core_cls(core) + (size_t)__tls_block_offset - ((size_t)&__arm32_tls_tcb_offset);
+	}
 }
 __attribute__((used, section(".preinit_array.00040"))) void *preinit_cls_tls_init = _cls_tls_init;

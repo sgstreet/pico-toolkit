@@ -22,7 +22,7 @@ target_link_libraries(pico_scheduler INTERFACE
 	pico_int64_ops
 	pico_float
 	pico_mem_ops
-	cmsis_core 
+	cmsis_core
 	picolibc_glue
 	pico_tls
 	pico_standard_link
