@@ -85,7 +85,7 @@ void _init_tls(void *tls)
 	memset(tls +(size_t)__tbss_offset, 0, (size_t)__tbss_size);
 }
 
-void _cls_tls_init(void)
+static void _cls_tls_init(void)
 {
 	for (unsigned long core = 0; core < NUM_CORES; ++core) {
 

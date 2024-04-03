@@ -5,17 +5,8 @@
 #include <stdatomic.h>
 #include <stdlib.h>
 
-#include <sys/cdefs.h>
-
-#include <linked-list.h>
-
-#include <picotls.h>
-
+#include <pico/toolkit/linked-list.h>
 #include <pico/toolkit/scheduler.h>
-
-#ifndef container_of
-#define container_of(ptr, type, member) __containerof(ptr, type, member)
-#endif
 
 #define __THRD_STACK_SIZE 1024
 #define __THRD_PRIORITY (SCHEDULER_NUM_TASK_PRIORITIES / 2)
@@ -66,6 +57,7 @@ struct thrd
 	thrd_t joiner;
 	struct cnd joiners;
 	struct linked_list thrd_node;
+	void *tss[__THRD_KEYS_MAX];
 	unsigned long marker;
 	char stack[] __attribute__((aligned(8)));
 };
@@ -74,10 +66,11 @@ struct thrd_attr
 {
 	unsigned long flags;
 	unsigned long priority;
+	unsigned long affinity;
 	size_t stack_size;
 };
 
-void _thdr_attr_init(struct thrd_attr *attr, unsigned long flags, unsigned long priority, size_t stack_size);
+void _thdr_attr_init(struct thrd_attr *attr, unsigned long flags, unsigned long priority, size_t stack_size, unsigned long affinity);
 int	_thrd_create(thrd_t *thrd, int (*func)(void *), void *arg, struct thrd_attr *attr);
 int _thrd_sleep(unsigned long msec);
 

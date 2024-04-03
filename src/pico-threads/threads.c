@@ -4,6 +4,8 @@
 #include <string.h>
 #include <threads.h>
 
+#include <picotls.h>
+
 #include <pico/toolkit/tls.h>
 #include <pico/toolkit/compiler.h>
 
@@ -17,13 +19,12 @@ struct arguments
 /* Memory management hooks */
 extern void *_thrd_alloc(size_t size);
 extern void _thrd_release(void *ptr);
-extern void *_thrd_alloc_thrd(void);
-extern void _thrd_release_thrd(void *thrd);
 
+/* Needed to wrap the main thread */
 extern void scheduler_startup_hook(void);
+extern char __arm32_tls_tcb_offset;
 
 static struct tss tss_map[__THRD_KEYS_MAX] = { [0 ... __THRD_KEYS_MAX - 1] = { .used = false, .destructor = 0 } };
-
 static once_flag thrds_reaper_init_flag = ONCE_FLAG_INIT;
 static once_flag thrds_init_flag = ONCE_FLAG_INIT;
 static cnd_t thrds_reap;
@@ -31,8 +32,6 @@ static mtx_t thrds_lock;
 static struct linked_list thrds;
 
 static struct scheduler scheduler;
-static thread_local struct thrd *current_thrd = 0;
-static thread_local void *thrd_tss[__THRD_KEYS_MAX];
 
 __weak void *_thrd_alloc(size_t size)
 {
@@ -103,7 +102,6 @@ static int _cnd_wait(cnd_t *cnd, mtx_t *mtx, unsigned long msec)
 
 	mtx_unlock(cnd->mutex);
 	int status = scheduler_futex_wait(&cnd->futex, sequence, msec);
-	assert(scheduler_task() != 0);
 	mtx_lock(cnd->mutex);
 
 	/* Did we timeout or have an error */
@@ -343,7 +341,7 @@ void *tss_get(tss_t tss_key)
 		return 0;
 
 	/* Return the value of the key */
-	return thrd_tss[tss_key];
+	return ((struct thrd *)(scheduler_task()->context))->tss[tss_key];
 }
 
 int	tss_set(tss_t tss_key, void *val)
@@ -352,19 +350,18 @@ int	tss_set(tss_t tss_key, void *val)
 		return thrd_error;
 
 	/* Save the value */
-	thrd_tss[tss_key] = val;
+	((struct thrd *)(scheduler_task()->context))->tss[tss_key] = val;
 	return thrd_success;
 }
 
 static void thdr_dispatch(void *context)
 {
+	struct thrd *thrd = context;
+
 	assert(context != 0);
 
-	/* Save the thread as the thread local */
-	current_thrd = context;
-
 	/* Forward */
-	thrd_exit(current_thrd->func(current_thrd->context));
+	thrd_exit(thrd->func(thrd->context));
 }
 
 static void thrd_exit_handler(struct task *task)
@@ -406,7 +403,7 @@ static void thrds_init(void)
 		abort();
 
 	/* Fixup the task TLS pointer it was initialize by the tls infrastructure */
-	main_task->tls = __aeabi_read_tp() + 8;
+	main_task->tls = __aeabi_read_tp() + (size_t)&__arm32_tls_tcb_offset;
 
 	/* Basic thread initialization */
 	thread->func = 0;
@@ -424,9 +421,6 @@ static void thrds_init(void)
 
 	/* Add the wrapped thread to the thread list, not locked as no other iso thread should be alive */
 	list_add(&thrds, &thread->thrd_node);
-
-	/* Initialize the thread local */
-	current_thrd = thread;
 
 	/* Now startup the scheduler by call the start hook and mark as running */
 	scheduler_startup_hook();
@@ -468,6 +462,7 @@ int	_thrd_create(thrd_t *thrd, int (*func)(void *), void *arg, struct thrd_attr 
 	desc.context = thread;
 	desc.flags = attr->flags;
 	desc.priority = attr->priority;
+	desc.affinity = attr->affinity;
 
 	/* Carefully add to the threads list for clean up */
 	if (mtx_lock(&thrds_lock) != thrd_success)
@@ -496,7 +491,7 @@ error_remove_thrds:
 		abort();
 
 error_release_thrd:
-	_thrd_release_thrd(thread);
+	_thrd_release(thread);
 
 	return thrd_error;
 }
@@ -504,73 +499,13 @@ error_release_thrd:
 int	thrd_create(thrd_t *thrd, thrd_start_t func, void *arg)
 {
 	assert(thrd != 0 && func != 0);
-
-	call_once(&thrds_init_flag, thrds_init);
-
-	/* Allocate the stack */
-	struct thrd *thread = _thrd_alloc(__THRD_STACK_SIZE);
-	if (!thread) {
-		errno = ENOMEM;
-		return thrd_error;
-	}
-
-	/* Initialize the thread block */
-	thread->func = func;
-	thread->context = arg;
-	thread->detached = false;
-	thread->terminated = false;
-	thread->joiner = 0;
-	thread->ret = 0;
-	list_init(&thread->thrd_node);
-	thread->marker = __THRD_MARKER;
-
-	/* Initialize the joiner conditional */
-	if (cnd_init(&thread->joiners) != thrd_success)
-		return thrd_error;
-
-	/* Initialize the task descriptor */
-	struct task_descriptor desc;
-	desc.entry_point = thdr_dispatch;
-	desc.exit_handler = thrd_exit_handler;
-	desc.context = thread;
-	desc.flags = 0;
-	desc.priority = __THRD_PRIORITY;
-
-	/* Carefully add to the threads list for clean up */
-	if (mtx_lock(&thrds_lock) != thrd_success)
-		goto error_release_thrd;
-
-	list_add(&thrds, &thread->thrd_node);
-
-	if (mtx_unlock(&thrds_lock) != thrd_success)
-		goto error_remove_thrds;
-
-	/* Launch the thread */
-	if (!scheduler_create(thread->stack, __THRD_STACK_SIZE - sizeof(struct thrd), &desc))
-		goto error_remove_thrds;
-
-	/* Save the thread id, we are great! */
-	*thrd = (thrd_t)thread;
-	return thrd_success;
-
-error_remove_thrds:
-	if (mtx_lock(&thrds_lock) != thrd_success)
-		abort();
-
-	list_remove(&thrds);
-
-	if (mtx_unlock(&thrds_lock) != thrd_success)
-		abort();
-
-error_release_thrd:
-	_thrd_release(thread);
-
-	return thrd_error;
+	struct thrd_attr attr = { .stack_size = __THRD_STACK_SIZE, .flags = 0, .priority = __THRD_PRIORITY, .affinity = 0, };
+	return _thrd_create(thrd, func, arg, &attr);
 }
 
 thrd_t thrd_current(void)
 {
-	return (thrd_t)current_thrd;
+	return (uintptr_t)scheduler_task()->context;
 }
 
 static int thrds_reaper(void *context)
@@ -593,7 +528,7 @@ static int thrds_reaper(void *context)
 		list_for_each_entry_mutable(entry, current, &thrds, thrd_node) {
 			if (entry->detached && entry->terminated) {
 				list_remove(&entry->thrd_node);
-				_thrd_release_thrd(entry);
+				_thrd_release(entry);
 			}
 		}
 	}
@@ -631,7 +566,7 @@ int	thrd_detach(thrd_t thrd)
 
 	/* Get the tid, if zero use the current one */
 	if (thrd == 0)
-		thread = current_thrd;
+		thread = scheduler_task()->context;
 
 	/* Mark the task */
 	scheduler_set_flags((struct task *)thread->stack, SCHEDULER_IGNORE_VIABLE);
@@ -648,14 +583,15 @@ int	thrd_equal(thrd_t lhs, thrd_t rhs)
 __noreturn void thrd_exit(int res)
 {
 	/* Clean up the the tss */
+	void **tss = ((struct thrd *)(scheduler_task()->context))->tss;
 	int i = 0;
 	while (i < TSS_DTOR_ITERATIONS) {
 
 		int more = __THRD_KEYS_MAX;
 		for (int j = 0; j < __THRD_KEYS_MAX; ++j)
-			if (tss_map[j].used && tss_map[j].destructor && thrd_tss[j] != 0) {
-				void *target = thrd_tss[j];
-				thrd_tss[j] = 0;
+			if (tss_map[j].used && tss_map[j].destructor && tss[j] != 0) {
+				void *target = tss[j];
+				tss[j] = 0;
 				tss_map[j].destructor(target);
 			} else
 				--more;
@@ -669,7 +605,7 @@ __noreturn void thrd_exit(int res)
 	}
 
 	/* Save the result code */
-	current_thrd->ret = res;
+	((struct thrd *)scheduler_task()->context)->ret = res;
 
 	/* Shoot ourselves */
 	scheduler_terminate(0);
@@ -750,11 +686,12 @@ void thrd_yield(void)
 	scheduler_yield();
 }
 
-void _thdr_attr_init(struct thrd_attr *attr, unsigned long flags, unsigned long priority, size_t stack_size)
+void _thdr_attr_init(struct thrd_attr *attr, unsigned long flags, unsigned long priority, size_t stack_size, unsigned long affinity)
 {
 	assert(attr != 0);
 
 	attr->flags = flags;
 	attr->priority = priority;
 	attr->stack_size = stack_size;
+	attr->affinity = affinity;
 }

@@ -26,8 +26,6 @@ extern void *__aeabi_read_core_cls(unsigned long core);
 extern void *__aeabi_read_cls(void);
 extern void *__aeabi_read_tp(void);
 
-void _cls_tls_init(void);
-
 extern void _init_tls(void *__tls);
 extern void _set_tls(void *tls);
 
