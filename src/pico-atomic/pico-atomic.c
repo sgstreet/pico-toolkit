@@ -62,7 +62,7 @@ static __optimize uint32_t __atomic_lock(volatile void *mem)
 		hw_clear_bits(ATOMIC_LOCK_REG, locked_mask);
 
 		/* Need to break any ties if the cores are in lock step, is this really required? */
-		for(uint32_t i = core; i > 0; --i)
+		for(uint32_t i = core * 2; i > 0; --i)
 			asm volatile ("nop");
 	}
 
