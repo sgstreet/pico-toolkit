@@ -21,7 +21,8 @@ static inline void spin_lock(spinlock_t *spinlock)
 	assert(spinlock != 0);
 
 	uint16_t ticket = atomic_fetch_add(spinlock, 1UL << 16) >> 16;
-	while ((*spinlock & 0xffff) != ticket);
+	while ((*spinlock & 0xffff) != ticket)
+		__WFE();
 }
 
 static inline unsigned int spin_lock_irqsave(spinlock_t *spinlock)
@@ -30,6 +31,7 @@ static inline unsigned int spin_lock_irqsave(spinlock_t *spinlock)
 
 	uint32_t state = disable_interrupts();
 	spin_lock(spinlock);
+	__SEV();
 	return state;
 }
 
