@@ -15,6 +15,8 @@
 #include <pico/platform.h>
 #include <pico/toolkit/iob.h>
 #include <pico/toolkit/scheduler.h>
+#include <pico/toolkit/backtrace.h>
+#include <pico/toolkit/fault.h>
 
 #define UART_ID uart0
 #define BAUD_RATE 115200
@@ -109,6 +111,39 @@ static void dump_task(void *context)
 	}
 }
 
+void save_fault(const struct cortexm_fault *fault)
+{
+	static struct backtrace fault_backtrace[10];
+	backtrace_frame_t backtrace_frame;
+	uint32_t fault_pc = fault->exception_return == 0xfffffff1 ? fault->LR : fault->PC;
+
+	/* Setup for a backtrace */
+	backtrace_frame.fp = fault->r7;
+	backtrace_frame.lr = fault->LR;
+	backtrace_frame.sp = fault->SP;
+	backtrace_frame.pc = fault_pc;
+
+	/* I'm not convinced this is correct,  */
+	backtrace_frame.pc = fault->exception_return == 0xfffffff1 ? fault->LR : fault->PC;
+
+	/* Try the unwind */
+	int backtrace_entries = _backtrace_unwind(fault_backtrace, array_sizeof(fault_backtrace), &backtrace_frame);
+
+	/* Print header */
+	printf("\ncore %u faulted at 0x%08x with PSR 0x%08x\n", fault->core, fault_pc, fault->PSR);
+
+	/* Dump the registers first */
+	printf("\tr0:  0x%08x r1:  0x%08x r2:  0x%08x r3:  0x%08x\n", fault->r0, fault->r1, fault->r2, fault->r3);
+	printf("\tr4:  0x%08x r5:  0x%08x r6:  0x%08x r7:  0x%08x\n", fault->r4, fault->r5, fault->r6, fault->r7);
+	printf("\tr8:  0x%08x r9:  0x%08x r10: 0x%08x r11: 0x%08x\n", fault->r8, fault->r9, fault->r10, fault->r11);
+	printf("\tIP:  0x%08x LR:  0x%08x SP:  0x%08x PC:  0x%08x\n", fault->IP, fault->LR, fault->SP, fault->PC);
+
+	/* Followed by the back trace */
+	printf("\nbacktrace:\n");
+	for (size_t i = 0; i < backtrace_entries; ++i)
+		printf("\t%s@%p - %p\n", fault_backtrace[i].name, fault_backtrace[i].function, fault_backtrace[i].address);
+}
+
 int main(int argc, char **argv)
 {
 	struct scheduler scheduler;
@@ -137,6 +172,10 @@ int main(int argc, char **argv)
 
 	for (int i = 0; i < NUM_HOGS; ++i) {
 		struct task_descriptor hog_task_desc = { .entry_point = hog_task, .context = &hogs[i], .priority = SCHEDULER_MIN_TASK_PRIORITY / 2 };
+		if (i < 2) {
+			hog_task_desc.flags |= SCHEDULER_CORE_AFFINITY;
+			hog_task_desc.affinity = i;
+		}
 		hogs[i].id = scheduler_create(sbrk(1024), 1024, &hog_task_desc);
 		if (!hogs[i].id) {
 			printf("failed to start hog %d\n", i);

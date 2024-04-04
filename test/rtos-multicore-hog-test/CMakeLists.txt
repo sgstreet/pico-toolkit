@@ -7,6 +7,7 @@ target_link_libraries(rtos-multicore-hog-test
 	hardware_uart
 	cmsis_core
 	pico_unique_id
+	pico_fault
 	pico_scheduler
 	multicore_support
 	pico_runtime

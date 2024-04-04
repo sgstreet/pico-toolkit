@@ -9,6 +9,8 @@
 #include <pico/toolkit/backtrace.h>
 #include <pico/toolkit/fault.h>
 
+#include <pico/platform.h>
+
 #include <hardware/gpio.h>
 #include <hardware/uart.h>
 
@@ -22,12 +24,13 @@ int picolibc_putc(char c, FILE *file);
 int picolibc_getc(FILE *file);
 
 cnd_t cv;
-mtx_t lock;
+mtx_t mtx;
 volatile bool exiting = false;
 volatile int nn = 0;
 volatile int spins = 0;
 int work[NUM_WORKERS] = { 0 };
 int waits[NUM_WORKERS] = { 0 };
+int cores[NUM_CORES][NUM_WORKERS] = { 0 };
 
 int picolibc_putc(char c, FILE *file)
 {
@@ -94,23 +97,25 @@ static int worker_thread(void *context)
 {
 	int id = (int)context;
 
-	mtx_lock(&lock);
+	mtx_lock(&mtx);
 
 	while(!exiting) {
 
+		++cores[get_core_num()][id];
+
 		while(!nn && !exiting) {
 			++waits[id];
-			cnd_wait(&cv, &lock);
+			cnd_wait(&cv, &mtx);
 		}
 
 		++work[id];
 		--nn;
-		mtx_unlock(&lock);
+		mtx_unlock(&mtx);
 		thrd_yield();
-		mtx_lock(&lock);
+		mtx_lock(&mtx);
 	}
 
-	mtx_unlock(&lock);
+	mtx_unlock(&mtx);
 	return 0;
 }
 
@@ -118,16 +123,16 @@ static int server_thread(void *context)
 {
 	int njobs;
 
-	mtx_lock(&lock);
+	mtx_lock(&mtx);
 
 	while (!exiting) {
 
 		if ((spins++ % 1000) == 0)
 			putchar('.');
 
-		mtx_unlock(&lock);
+		mtx_unlock(&mtx);
 		thrd_yield();
-		mtx_lock(&lock);
+		mtx_lock(&mtx);
 
 		njobs = rand() % (NUM_WORKERS + 1);
 		nn = njobs;
@@ -139,7 +144,7 @@ static int server_thread(void *context)
 	}
 
 	cnd_broadcast(&cv);
-	mtx_unlock(&lock);
+	mtx_unlock(&mtx);
 
 	return 0;
 }
@@ -148,6 +153,13 @@ static int run_test(void)
 {
 	thrd_t server;
 	thrd_t workers[NUM_WORKERS];
+	thrd_attr_t attr_core_any;
+	thrd_attr_t attr_core_0;
+	thrd_attr_t attr_core_1;
+
+	_thdr_attr_init(&attr_core_any, 0, __THRD_PRIORITY, __THRD_STACK_SIZE, UINT32_MAX);
+	_thdr_attr_init(&attr_core_0, SCHEDULER_CORE_AFFINITY, __THRD_PRIORITY, __THRD_STACK_SIZE, 0);
+	_thdr_attr_init(&attr_core_1, SCHEDULER_CORE_AFFINITY, __THRD_PRIORITY, __THRD_STACK_SIZE, 1);
 
 	struct timespec duration = { .tv_sec = 5, .tv_nsec = 0 };
 
@@ -156,30 +168,32 @@ static int run_test(void)
 		goto error_exit;
 	}
 
-	if (mtx_init(&lock, mtx_prio_inherit) != thrd_success) {
+	if (mtx_init(&mtx, mtx_prio_inherit) != thrd_success) {
 		printf("failed to initialize mtx: %d\n", errno);
 		goto error_destroy_cnd;
 	}
 
-	if (thrd_create(&server, server_thread, 0) != thrd_success) {
+	if (_thrd_create(&server, server_thread, 0, &attr_core_any) != thrd_success) {
 		printf("could not create server thread: %d\n", errno);
 		goto error_destroy_mtx;
 	}
 
 	memset(workers, 0, sizeof(workers));
-	for (int i = 0; i < NUM_WORKERS; ++i)
-		if (thrd_create(&workers[i], worker_thread, (void *)i) != thrd_success) {
+	for (int i = 0; i < NUM_WORKERS; ++i) {
+		if (_thrd_create(&workers[i], worker_thread, (void *)i, &attr_core_any) != thrd_success) {
 			printf("could not create worker thread %d: %d\n", i, errno);
 			goto error_destroy_thrds;
 		}
+	}
 
 	printf("working for %llu seconds\n", duration.tv_sec);
 	thrd_sleep(&duration, 0);
 
-	mtx_lock(&lock);
+	mtx_lock(&mtx);
 	exiting = true;
-	mtx_unlock(&lock);
+	mtx_unlock(&mtx);
 
+	printf("\n");
 	for (int i = 0; i < NUM_WORKERS; ++i) {
 		printf("waiting for worker %d\n", i);
 		if (thrd_join(workers[i], 0) == thrd_success)
@@ -204,16 +218,16 @@ static int run_test(void)
 	return 0;
 
 error_destroy_thrds:
-	mtx_lock(&lock);
+	mtx_lock(&mtx);
 	exiting = true;
-	mtx_unlock(&lock);
+	mtx_unlock(&mtx);
 	for (int i = 0; i < NUM_WORKERS; ++i)
 		if (workers[i] != 0)
 			thrd_join(workers[i], 0);
 	thrd_join(server, 0);
 
 error_destroy_mtx:
-	mtx_destroy(&lock);
+	mtx_destroy(&mtx);
 
 error_destroy_cnd:
 	cnd_destroy(&cv);
@@ -222,7 +236,20 @@ error_exit:
 	return -1;
 }
 
-int main(int argc, char **argv)
+static __unused int main_task(void *context)
 {
 	return run_test();
+}
+
+int main(int argc, char **argv)
+{
+#if 0
+	thrd_t main;
+	int result;
+	thrd_create(&main,  main_task, 0);
+	thrd_join(main, &result);
+	return result;
+#else
+	return run_test();
+#endif
 }

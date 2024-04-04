@@ -62,16 +62,16 @@ struct thrd
 	char stack[] __attribute__((aligned(8)));
 };
 
-struct thrd_attr
+typedef struct thrd_attr
 {
 	unsigned long flags;
 	unsigned long priority;
 	unsigned long affinity;
 	size_t stack_size;
-};
+} thrd_attr_t;
 
-void _thdr_attr_init(struct thrd_attr *attr, unsigned long flags, unsigned long priority, size_t stack_size, unsigned long affinity);
-int	_thrd_create(thrd_t *thrd, int (*func)(void *), void *arg, struct thrd_attr *attr);
+void _thdr_attr_init(thrd_attr_t *attr, unsigned long flags, unsigned long priority, size_t stack_size, unsigned long affinity);
+int	_thrd_create(thrd_t *thrd, int (*func)(void *), void *arg, thrd_attr_t *attr);
 int _thrd_sleep(unsigned long msec);
 
 #endif

@@ -148,23 +148,11 @@ static int _cnd_wakeup(struct cnd *cnd, bool all)
 
 int	cnd_signal(cnd_t *cnd)
 {
-	assert(cnd != 0);
-
-	/* Anyone waiting for us? */
-	if (cnd->mutex == 0)
-		return thrd_success;
-
 	return _cnd_wakeup(cnd, false);
 }
 
 int	cnd_broadcast(cnd_t *cnd)
 {
-	assert(cnd != 0);
-
-	/* Anyone waiting for us? */
-	if (cnd->mutex == 0)
-		return thrd_success;
-
 	return _cnd_wakeup(cnd, true);
 }
 
@@ -368,7 +356,7 @@ static void thrd_exit_handler(struct task *task)
 {
 	assert(task != 0);
 
-	struct thrd *thread = container_of((void *)task, struct thrd, stack);
+	struct thrd *thread = task->context;
 
 	/* Mark the thread as terminated */
 	thread->terminated = true;
@@ -430,7 +418,7 @@ static void thrds_init(void)
 	scheduler_yield();
 }
 
-int	_thrd_create(thrd_t *thrd, int (*func)(void *), void *arg, struct thrd_attr *attr)
+int	_thrd_create(thrd_t *thrd, int (*func)(void *), void *arg, thrd_attr_t *attr)
 {
 	call_once(&thrds_init_flag, thrds_init);
 
@@ -499,7 +487,7 @@ error_release_thrd:
 int	thrd_create(thrd_t *thrd, thrd_start_t func, void *arg)
 {
 	assert(thrd != 0 && func != 0);
-	struct thrd_attr attr = { .stack_size = __THRD_STACK_SIZE, .flags = 0, .priority = __THRD_PRIORITY, .affinity = 0, };
+	struct thrd_attr attr = { .stack_size = __THRD_STACK_SIZE, .flags = 0, .priority = __THRD_PRIORITY, .affinity = UINT32_MAX, };
 	return _thrd_create(thrd, func, arg, &attr);
 }
 
@@ -686,7 +674,7 @@ void thrd_yield(void)
 	scheduler_yield();
 }
 
-void _thdr_attr_init(struct thrd_attr *attr, unsigned long flags, unsigned long priority, size_t stack_size, unsigned long affinity)
+void _thdr_attr_init(thrd_attr_t *attr, unsigned long flags, unsigned long priority, size_t stack_size, unsigned long affinity)
 {
 	assert(attr != 0);
 

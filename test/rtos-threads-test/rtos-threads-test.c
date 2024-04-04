@@ -22,7 +22,7 @@ int picolibc_putc(char c, FILE *file);
 int picolibc_getc(FILE *file);
 
 cnd_t cv;
-mtx_t lock;
+mtx_t mtx;
 volatile bool exiting = false;
 volatile int nn = 0;
 volatile int spins = 0;
@@ -94,23 +94,23 @@ static int worker_thread(void *context)
 {
 	int id = (int)context;
 
-	mtx_lock(&lock);
+	mtx_lock(&mtx);
 
 	while(!exiting) {
 
 		while(!nn && !exiting) {
 			++waits[id];
-			cnd_wait(&cv, &lock);
+			cnd_wait(&cv, &mtx);
 		}
 
 		++work[id];
 		--nn;
-		mtx_unlock(&lock);
+		mtx_unlock(&mtx);
 		thrd_yield();
-		mtx_lock(&lock);
+		mtx_lock(&mtx);
 	}
 
-	mtx_unlock(&lock);
+	mtx_unlock(&mtx);
 	return 0;
 }
 
@@ -118,16 +118,16 @@ static int server_thread(void *context)
 {
 	int njobs;
 
-	mtx_lock(&lock);
+	mtx_lock(&mtx);
 
 	while (!exiting) {
 
 		if ((spins++ % 1000) == 0)
 			putchar('.');
 
-		mtx_unlock(&lock);
+		mtx_unlock(&mtx);
 		thrd_yield();
-		mtx_lock(&lock);
+		mtx_lock(&mtx);
 
 		njobs = rand() % (NUM_WORKERS + 1);
 		nn = njobs;
@@ -139,7 +139,7 @@ static int server_thread(void *context)
 	}
 
 	cnd_broadcast(&cv);
-	mtx_unlock(&lock);
+	mtx_unlock(&mtx);
 
 	return 0;
 }
@@ -156,7 +156,7 @@ static int run_test(void)
 		goto error_exit;
 	}
 
-	if (mtx_init(&lock, mtx_prio_inherit) != thrd_success) {
+	if (mtx_init(&mtx, mtx_prio_inherit) != thrd_success) {
 		printf("failed to initialize mtx: %d\n", errno);
 		goto error_destroy_cnd;
 	}
@@ -176,9 +176,9 @@ static int run_test(void)
 	printf("working for %llu seconds\n", duration.tv_sec);
 	thrd_sleep(&duration, 0);
 
-	mtx_lock(&lock);
+	mtx_lock(&mtx);
 	exiting = true;
-	mtx_unlock(&lock);
+	mtx_unlock(&mtx);
 
 	for (int i = 0; i < NUM_WORKERS; ++i) {
 		printf("waiting for worker %d\n", i);
@@ -204,16 +204,16 @@ static int run_test(void)
 	return 0;
 
 error_destroy_thrds:
-	mtx_lock(&lock);
+	mtx_lock(&mtx);
 	exiting = true;
-	mtx_unlock(&lock);
+	mtx_unlock(&mtx);
 	for (int i = 0; i < NUM_WORKERS; ++i)
 		if (workers[i] != 0)
 			thrd_join(workers[i], 0);
 	thrd_join(server, 0);
 
 error_destroy_mtx:
-	mtx_destroy(&lock);
+	mtx_destroy(&mtx);
 
 error_destroy_cnd:
 	cnd_destroy(&cv);

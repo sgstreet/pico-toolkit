@@ -93,7 +93,7 @@ core_local struct task *current_task = 0;
 core_local int slice_expires = INT32_MAX;
 core_local unsigned long ticks = 0;
 core_local atomic_ulong deferred_wake[SCHEDULER_MAX_DEFERED_WAKE];
-core_local struct sched_queue core_ready_queue;
+//core_local struct sched_queue core_ready_queue;
 
 static inline void sched_list_init(struct sched_list *list)
 {
@@ -283,21 +283,31 @@ static inline void sched_queue_push(struct sched_queue *queue, struct task *task
 	++queue->size;
 }
 
-static inline struct task *sched_queue_pop(struct sched_queue *queue)
+static inline struct task *sched_queue_pop(struct sched_queue *queue, unsigned long core)
 {
-	struct task* task;
+	struct task *task;
 
 	assert(queue != 0);
 
-	task = sched_list_pop_entry(&queue->tasks, struct task, queue_node);
-	if (task) {
-		--queue->size;
-		task->current_queue = 0;
+	/* Just take the first task */
+	if (core == UINT32_MAX) {
+		task = sched_list_pop_entry(&queue->tasks, struct task, queue_node);
+		if (task) {
+			--queue->size;
+			task->current_queue = 0;
+		}
+		return task;
 	}
 
-	assert(task == 0 || !sched_list_is_linked(&task->queue_node));
+	/* Look for the highest priority task which can run on this core */
+	sched_list_for_each_entry(task, &queue->tasks, queue_node) {
+		if ((task->flags & SCHEDULER_CORE_AFFINITY) == 0 || task->affinity == core) {
+			sched_queue_remove(task);
+			return task;
+		}
+	}
 
-	return task;
+	return 0;
 }
 
 static inline unsigned long sched_queue_highest_priority(struct sched_queue *queue)
@@ -447,10 +457,7 @@ void scheduler_create_svc(struct exception_frame *frame)
 
 	/* Add the new task to the ready queue */
 	task->state = TASK_READY;
-	if (task->flags & SCHEDULER_CORE_AFFINITY)
-		sched_queue_push(cls_datum_core_ptr(task->affinity, core_ready_queue), task);
-	else
-		sched_queue_push(&scheduler->ready_queue, task);
+	sched_queue_push(&scheduler->ready_queue, task);
 
 	/* Since we pushed the task onto the ready queue, do a context switch and return the new task */
 	if (scheduler_is_running() && task->current_priority < sched_get_current()->current_priority)
@@ -508,10 +515,7 @@ void scheduler_suspend_svc(struct scheduler_frame *frame)
 
 		/* Since a scheduler frame was create we always need a context switch */
 		current->state = TASK_READY;
-		if (task->flags & SCHEDULER_CORE_AFFINITY)
-			sched_queue_push(cls_datum_ptr(core_ready_queue), current);
-		else
-			sched_queue_push(&scheduler->ready_queue, current);
+		sched_queue_push(&scheduler->ready_queue, current);
 
 	} else {
 
@@ -567,10 +571,7 @@ void scheduler_resume_svc(struct exception_frame *frame)
 
 		/* Push on the ready queue */
 		task->state = TASK_READY;
-		if (task->flags & SCHEDULER_CORE_AFFINITY)
-			sched_queue_push(cls_datum_core_ptr(task->affinity, core_ready_queue), task);
-		else
-			sched_queue_push(&scheduler->ready_queue, task);
+		sched_queue_push(&scheduler->ready_queue, task);
 
 	} else
 		frame->r0 = -EINVAL;
@@ -628,10 +629,7 @@ void scheduler_wait_svc(struct scheduler_frame *frame)
 
 		/* Futex already triggered, we will need a need to complete for the processor */
 		current->state = TASK_READY;
-		if (current->flags & SCHEDULER_CORE_AFFINITY)
-			sched_queue_push(cls_datum_core_ptr(current->affinity, core_ready_queue), current);
-		else
-			sched_queue_push(&scheduler->ready_queue, current);
+		sched_queue_push(&scheduler->ready_queue, current);
 	}
 
 
@@ -673,7 +671,7 @@ static int scheduler_wake_futex(struct futex *futex, bool all)
 
 	/* Wake up the waiters */
 	struct task *task;
-	while ((task = sched_queue_pop(&futex->waiters)) != 0) {
+	while ((task = sched_queue_pop(&futex->waiters,UINT32_MAX)) != 0) {
 
 		assert(task->marker == SCHEDULER_TASK_MARKER);
 
@@ -693,10 +691,7 @@ static int scheduler_wake_futex(struct futex *futex, bool all)
 		/* Adjust queue */
 		scheduler_timer_remove(task);
 		task->state = TASK_READY;
-		if (task->flags & SCHEDULER_CORE_AFFINITY)
-			sched_queue_push(cls_datum_core_ptr(task->affinity, core_ready_queue), task);
-		else
-			sched_queue_push(&scheduler->ready_queue, task);
+		sched_queue_push(&scheduler->ready_queue, task);
 
 		/* Continue waking more tasks? */
 		++woken;
@@ -822,6 +817,8 @@ __weak void scheduler_terminated_hook(struct task *task)
 		task->exit_handler(task);
 }
 
+struct task *debug_tasks[25];
+
 __weak void scheduler_idle_hook(void)
 {
 	scheduler_spin_unlock();
@@ -882,10 +879,7 @@ struct scheduler_frame *scheduler_switch(struct scheduler_frame *frame)
 		task->state = TASK_READY;
 		task->core = UINT32_MAX;
 		task->psp = frame;
-		if (task->flags & SCHEDULER_CORE_AFFINITY)
-			sched_queue_push(cls_datum_ptr(core_ready_queue), task);
-		else
-			sched_queue_push(&scheduler->ready_queue, task);
+		sched_queue_push(&scheduler->ready_queue, task);
 	}
 
 	/* Try to get the next task */
@@ -912,21 +906,11 @@ struct scheduler_frame *scheduler_switch(struct scheduler_frame *frame)
 			expired->psp->r0 = (uint32_t)-ETIMEDOUT;
 
 			/* Add to the ready queue */
-			if (expired->flags & SCHEDULER_CORE_AFFINITY)
-				sched_queue_push(cls_datum_core_ptr(expired->affinity, core_ready_queue), expired);
-			else
-				sched_queue_push(&scheduler->ready_queue, expired);
+			sched_queue_push(&scheduler->ready_queue, expired);
 		}
 
-		/* Select the ready queue */
-		struct sched_queue *ready_queue;
-		if (sched_queue_highest_priority(cls_datum_ptr(core_ready_queue)) <= sched_queue_highest_priority(&scheduler->ready_queue))
-			ready_queue = cls_datum_ptr(core_ready_queue);
-		else
-			ready_queue = &scheduler->ready_queue;
-
 		/* Try to get highest priority ready task */
-		task = sched_queue_pop(ready_queue);
+		task = sched_queue_pop(&scheduler->ready_queue, scheduler_current_core());
 		if (task) {
 
 			assert(task->marker == SCHEDULER_TASK_MARKER);
@@ -976,12 +960,26 @@ struct scheduler_frame *scheduler_switch(struct scheduler_frame *frame)
 
 	/* If there are still more ready tasks, kick other cores if need to ensure high priority tasks run */
 	if (!sched_queue_empty(&scheduler->ready_queue)) {
+
+		/* Check other cores */
 		for (unsigned long core = 0; core < scheduler_num_cores(); ++core) {
+
+			/* Other cores */
 			if (core != scheduler_current_core()) {
+
+				/* Only kick the other core if there is a higher priority task to run */
 				struct task *core_task = cls_datum_core(core, current_task);
-				if (core_task == 0 || sched_queue_highest_priority(cls_datum_core_ptr(core, core_ready_queue)) < core_task->current_priority || sched_queue_highest_priority(&scheduler->ready_queue) < core_task->current_priority) {
-					scheduler_request_switch(core);
-					break;
+				if (core_task) {
+
+					/* Well check the priority taking into account core affinity */
+					struct task *cursor;
+					sched_list_for_each_entry(cursor, &scheduler->ready_queue.tasks, queue_node) {
+						if ((cursor->flags & SCHEDULER_CORE_AFFINITY) == 0 || cursor->affinity == core) {
+							if (cursor->current_priority < core_task->current_priority)
+								scheduler_request_switch(core);
+							break;
+						}
+					}
 				}
 			}
 		}
@@ -1133,7 +1131,6 @@ int scheduler_init(struct scheduler *new_scheduler, size_t tls_size)
 		cls_datum_core(core, slice_expires) = INT32_MAX;
 		cls_datum_core(core, ticks) = 0;
 		memset(cls_datum_core_ptr(core, deferred_wake), 0, sizeof(deferred_wake));
-		sched_queue_init(cls_datum_core_ptr(core, core_ready_queue));
 	}
 
 	/* Save a scheduler singleton */
