@@ -6,8 +6,6 @@
 #include <stdio.h>
 
 #include <pico/toolkit/compiler.h>
-#include <pico/toolkit/backtrace.h>
-#include <pico/toolkit/fault.h>
 
 #include <hardware/gpio.h>
 #include <hardware/uart.h>
@@ -55,39 +53,6 @@ __constructor void console_init(void)
 	 */
 	gpio_set_function(UART_TX_PIN, GPIO_FUNC_UART);
 	gpio_set_function(UART_RX_PIN, GPIO_FUNC_UART);
-}
-
-void save_fault(const struct cortexm_fault *fault)
-{
-	static struct backtrace fault_backtrace[10];
-	backtrace_frame_t backtrace_frame;
-	uint32_t fault_pc = fault->exception_return == 0xfffffff1 ? fault->LR : fault->PC;
-
-	/* Setup for a backtrace */
-	backtrace_frame.fp = fault->r7;
-	backtrace_frame.lr = fault->LR;
-	backtrace_frame.sp = fault->SP;
-	backtrace_frame.pc = fault_pc;
-
-	/* I'm not convinced this is correct,  */
-	backtrace_frame.pc = fault->exception_return == 0xfffffff1 ? fault->LR : fault->PC;
-
-	/* Try the unwind */
-	int backtrace_entries = _backtrace_unwind(fault_backtrace, array_sizeof(fault_backtrace), &backtrace_frame);
-
-	/* Print header */
-	printf("\ncore %u faulted at 0x%08x with PSR 0x%08x\n", fault->core, fault_pc, fault->PSR);
-
-	/* Dump the registers first */
-	printf("\tr0:  0x%08x r1:  0x%08x r2:  0x%08x r3:  0x%08x\n", fault->r0, fault->r1, fault->r2, fault->r3);
-	printf("\tr4:  0x%08x r5:  0x%08x r6:  0x%08x r7:  0x%08x\n", fault->r4, fault->r5, fault->r6, fault->r7);
-	printf("\tr8:  0x%08x r9:  0x%08x r10: 0x%08x r11: 0x%08x\n", fault->r8, fault->r9, fault->r10, fault->r11);
-	printf("\tIP:  0x%08x LR:  0x%08x SP:  0x%08x PC:  0x%08x\n", fault->IP, fault->LR, fault->SP, fault->PC);
-
-	/* Followed by the back trace */
-	printf("\nbacktrace:\n");
-	for (size_t i = 0; i < backtrace_entries; ++i)
-		printf("\t%s@%p - %p\n", fault_backtrace[i].name, fault_backtrace[i].function, fault_backtrace[i].address);
 }
 
 static int worker_thread(void *context)
