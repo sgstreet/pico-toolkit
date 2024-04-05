@@ -93,7 +93,6 @@ core_local struct task *current_task = 0;
 core_local int slice_expires = INT32_MAX;
 core_local unsigned long ticks = 0;
 core_local atomic_ulong deferred_wake[SCHEDULER_MAX_DEFERED_WAKE];
-//core_local struct sched_queue core_ready_queue;
 
 static inline void sched_list_init(struct sched_list *list)
 {
