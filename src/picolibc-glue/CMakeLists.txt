@@ -8,6 +8,7 @@ if (NOT TARGET picolibc_glue)
     )
 
 	target_compile_definitions(picolibc_glue INTERFACE PICO_USE_MALLOC_MUTEX=0) 
+	target_compile_definitions(picolibc_glue INTERFACE PICO_MALLOC_PANIC=0) 
 	
 	target_link_libraries(picolibc_glue INTERFACE toolkit_support pico_sbrk)
 	
