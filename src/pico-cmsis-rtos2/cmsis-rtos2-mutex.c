@@ -157,7 +157,7 @@ osStatus_t osMutexRelease(osMutexId_t mutex_id)
 	if ((mutex->attr_bits & osMutexRecursive) && --mutex->count > 0)
 		return osOK;
 
-	/* Hot path unlock in the non-contented case */
+	/* Hot path unlock in the non-contended case */
 	long expected = (long)scheduler_task();
 	if (mutex->value == expected && atomic_compare_exchange_strong(&mutex->value, &expected, 0))
 		return osOK;

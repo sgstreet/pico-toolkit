@@ -306,12 +306,12 @@ static inline __always_inline __optimize osStatus_t osIsResourceValid(osResource
 
 static inline __always_inline __optimize uint32_t osSchedulerPriority(osPriority_t rtos2_priority)
 {
-	return SCHEDULER_MIN_TASK_PRIORITY - rtos2_priority;
+	return osPriorityISR - rtos2_priority;
 }
 
 static inline __always_inline __optimize osPriority_t osKernelPriority(uint32_t scheduler_priority)
 {
-	return SCHEDULER_MIN_TASK_PRIORITY - scheduler_priority;
+	return osPriorityISR - scheduler_priority;
 }
 
 osStatus_t osMemoryPoolIsBlockValid(osMemoryPoolId_t mp_id, void *block);
