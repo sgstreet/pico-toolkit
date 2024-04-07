@@ -455,12 +455,23 @@ void scheduler_create_svc(struct exception_frame *frame)
 	sched_list_push(&scheduler->tasks, &task->scheduler_node);
 
 	/* Add the new task to the ready queue */
-	task->state = TASK_READY;
-	sched_queue_push(&scheduler->ready_queue, task);
+	if (task->flags & SCHEDULER_CREATE_SUSPENDED) {
 
-	/* Since we pushed the task onto the ready queue, do a context switch and return the new task */
-	if (scheduler_is_running() && task->current_priority < sched_get_current()->current_priority)
-		scheduler_request_switch(scheduler_current_core());
+		/* Suspend the task */
+		task->state = TASK_SUSPENDED;
+		sched_queue_push(&scheduler->suspended_queue, task);
+
+	} else {
+
+		/* Ready the task */
+		task->state = TASK_READY;
+		sched_queue_push(&scheduler->ready_queue, task);
+
+		/* Since we pushed the task onto the ready queue, do a context switch and return the new task */
+		if (scheduler_is_running() && task->current_priority < sched_get_current()->current_priority)
+			scheduler_request_switch(scheduler_current_core());
+	}
+
 
 	scheduler_spin_unlock();
 }
@@ -565,8 +576,9 @@ void scheduler_resume_svc(struct exception_frame *frame)
 		/* Remove any blocking queue */
 		sched_queue_remove(task);
 
-		/* Sleeping tasks walkup early with no error, while waiting tasks return canceled */
-		task->psp->r0 = state == TASK_BLOCKED ? -ECANCELED : 0;
+		/* Waiting tasks return -ECANCELED when the wait is broken via resume */
+		if (task->state == TASK_BLOCKED)
+			task->psp->r0 = -ECANCELED;
 
 		/* Push on the ready queue */
 		task->state = TASK_READY;
@@ -1270,19 +1282,12 @@ int scheduler_sleep(unsigned long ticks)
 		return 0;
 	}
 
-	/* Get the current task */
-	struct task *task = scheduler_task();
-	assert(task != 0 && task->marker == SCHEDULER_TASK_MARKER);
-
 	/* We are timed suspending ourselves */
-	uint32_t start_tick = scheduler_get_ticks();
-	int status = svc_call2(SCHEDULER_SUSPEND_SVC, (uint32_t)task, ticks);
+	int status = svc_call2(SCHEDULER_SUSPEND_SVC, (uint32_t)scheduler_task(), ticks);
 	if (status < 0 && status != -ETIMEDOUT) {
 		errno = -status;
 		return status;
 	}
-	uint32_t end_ticks = scheduler_get_ticks();
-	assert(end_ticks - start_tick >= ticks);
 
 	/* All good */
 	return 0;
@@ -1307,7 +1312,7 @@ int scheduler_suspend(struct task *task)
 	}
 
 	/* All good */
-	return status;
+	return 0;
 }
 
 int scheduler_resume(struct task *task)

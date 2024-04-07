@@ -23,7 +23,8 @@
 #define RTOS_DEQUE_MARKER 0x42088024UL
 
 #define osDynamicAlloc 0x80000000U
-#define osReapThread 0x40000000UL
+#define osReapThread 0x40000000U
+#define osThreadCreateSuspended 0x20000000U
 
 #define RTOS_NAME_SIZE 32UL
 #define RTOS_DEFAULT_STACK_SIZE 1024UL

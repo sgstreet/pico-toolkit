@@ -335,7 +335,7 @@ osThreadId_t osThreadNew(osThreadFunc_t func, void *argument, const osThreadAttr
 	desc.entry_point = osSchedulerTaskEntryPoint;
 	desc.exit_handler = osSchedulerTaskExitHandler;
 	desc.context = new_thread;
-	desc.flags = SCHEDULER_TASK_STACK_CHECK;
+	desc.flags = SCHEDULER_TASK_STACK_CHECK | ((attr->attr_bits & osThreadCreateSuspended) ? SCHEDULER_CREATE_SUSPENDED : 0);
 	desc.priority = osSchedulerPriority(attr->priority == osPriorityNone ? osPriorityNormal : attr->priority);
 
 	/* Add it to the kernel thread resource list */
