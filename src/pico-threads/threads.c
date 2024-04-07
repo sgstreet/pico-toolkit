@@ -46,16 +46,23 @@ __weak void _thrd_release(void *ptr)
 void call_once(once_flag *flag, void (*func)(void))
 {
 	/* All ready done */
-	if (*flag == 2)
+	if (atomic_load(flag) == 2)
 		return;
+
+	/* Setup a futex to wait on */
+	struct futex futex;
+	scheduler_futex_init(&futex, (long *)flag, 0);
 
 	/* Try to claim the initializer */
 	int expected = 0;
 	if (!atomic_compare_exchange_strong(flag, &expected, 1)) {
 
-		/* Wait the the initializer to complete, we sleep to ensure lower priority threads run */
-		while (*flag != 2)
-			scheduler_sleep(10);
+		/* Wait on the futex */
+		expected = 2;
+		while (!atomic_compare_exchange_strong(flag, &expected, 2)) {
+			scheduler_futex_wait(&futex, expected, SCHEDULER_WAIT_FOREVER);
+			expected = 2;
+		}
 
 		/* Done */
 		return;
@@ -65,7 +72,10 @@ void call_once(once_flag *flag, void (*func)(void))
 	func();
 
 	/*  Mark as done */
-	*flag = 2;
+	atomic_store(flag, 2);
+
+	/* Wake any waiters */
+	scheduler_futex_wake(&futex, true);
 }
 
 void cnd_destroy(cnd_t *cnd)

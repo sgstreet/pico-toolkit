@@ -33,7 +33,7 @@
 #define osOnceFlagsInit 0
 
 typedef uint32_t osResourceMarker_t;
-typedef atomic_int osOnceFlag_t;
+typedef atomic_long osOnceFlag_t;
 typedef osOnceFlag_t *osOnceFlagId_t;
 typedef void (*osOnceFunc_t)(osOnceFlagId_t flag_id, void *context);
 

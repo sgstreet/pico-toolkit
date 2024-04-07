@@ -284,16 +284,23 @@ uint32_t osKernelGetSysTimerFreq(void)
 void osCallOnce(osOnceFlagId_t once_flag, osOnceFunc_t func, void *context)
 {
 	/* All ready done */
-	if (*once_flag == 2)
+	if (atomic_load(once_flag) == 2)
 		return;
+
+	/* Setup a futex to wait on */
+	struct futex futex;
+	scheduler_futex_init(&futex, (long *)once_flag, 0);
 
 	/* Try to claim the initializer */
 	int expected = 0;
 	if (!atomic_compare_exchange_strong(once_flag, &expected, 1)) {
 
-		/* Wait the the initializer to complete, we sleep to ensure lower priority threads run */
-		while (*once_flag != 2)
-			osDelay(10);
+		/* Wait on the futex */
+		expected = 2;
+		while (!atomic_compare_exchange_strong(once_flag, &expected, 2)) {
+			scheduler_futex_wait(&futex, expected, SCHEDULER_WAIT_FOREVER);
+			expected = 2;
+		}
 
 		/* Done */
 		return;
@@ -303,8 +310,10 @@ void osCallOnce(osOnceFlagId_t once_flag, osOnceFunc_t func, void *context)
 	func(once_flag, context);
 
 	/*  Mark as done */
-	*once_flag = 2;
-	__DSB();
+	atomic_store(once_flag, 2);
+
+	/* Wake any waiters */
+	scheduler_futex_wake(&futex, true);
 }
 
 osStatus_t osKernelResourceAdd(osResourceId_t resource_id, osResourceNode_t node)
