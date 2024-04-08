@@ -35,7 +35,7 @@ static struct scheduler scheduler;
 
 __weak void *_thrd_alloc(size_t size)
 {
-	return malloc(size);
+	return calloc(1, size);
 }
 
 __weak void _thrd_release(void *ptr)
