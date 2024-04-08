@@ -142,7 +142,7 @@ void __retarget_runtime_wake(_LOCK_T lock)
 		abort();
 }
 
-void scheduler_tls_init_hook(void *tls)
+__weak void scheduler_tls_init_hook(void *tls)
 {
 	_init_tls(tls);
 }

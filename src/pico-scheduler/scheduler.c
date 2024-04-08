@@ -93,6 +93,8 @@ core_local struct task *current_task = 0;
 core_local int slice_expires = INT32_MAX;
 core_local unsigned long ticks = 0;
 core_local atomic_ulong deferred_wake[SCHEDULER_MAX_DEFERED_WAKE];
+core_local atomic_ulong taken_wake_counter = 0;
+core_local atomic_ulong given_wake_counter = 0;
 
 static inline void sched_list_init(struct sched_list *list)
 {
@@ -897,11 +899,12 @@ struct scheduler_frame *scheduler_switch(struct scheduler_frame *frame)
 	while (true) {
 
 		/* Check for deferred wake ups */
-		atomic_ulong *wake = cls_datum(deferred_wake);
-		for (int i = 0; i < SCHEDULER_MAX_DEFERED_WAKE; ++i) {
-			unsigned long wakeup = atomic_exchange(&wake[i], 0);
-			if (wakeup != 0)
+		for (int i = 0; (cls_datum(taken_wake_counter) ^ cls_datum(given_wake_counter)) != 0 && i < SCHEDULER_MAX_DEFERED_WAKE; ++i) {
+			unsigned long wakeup = atomic_exchange(&cls_datum(deferred_wake)[i], 0);
+			if (wakeup != 0) {
 				scheduler_wake_futex((struct futex *)(wakeup & ~0x00000001), wakeup & 0x00000001);
+				++cls_datum(taken_wake_counter);
+			}
 		}
 
 		/* Ready any expired timers */
@@ -1385,15 +1388,18 @@ int scheduler_futex_wake(struct futex *futex, bool all)
 		}
 
 		/* Find an empty slot */
-		atomic_ulong *wake = cls_datum(deferred_wake);
 		unsigned long expected = 0;
 		unsigned long wakeup = (unsigned long)futex | all;
 		for (int i = 0; i < SCHEDULER_MAX_DEFERED_WAKE; ++i) {
-			/* The second cause protects from multiple wakeup against the same futex */
-			if (atomic_compare_exchange_strong(&wake[i], &expected, wakeup) || expected == wakeup) {
+			/* The second clause protects from multiple wakeups against the same futex */
+			if (atomic_compare_exchange_strong(&cls_datum(deferred_wake)[i], &expected, wakeup)) {
+				++cls_datum(given_wake_counter);
 				scheduler_request_switch(scheduler_current_core());
 				return 0;
-			}
+			} else if (expected == wakeup)
+				return 0;
+
+			/* Get ready to try the next slot */
 			expected = 0;
 		}
 
