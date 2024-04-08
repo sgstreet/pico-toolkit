@@ -16,18 +16,12 @@ extern void *__tls_size;
 
 __weak void *_rtos2_alloc(size_t size)
 {
-	/* By default we use the monotonic allocator */
-	void *ptr = sbrk(size);
-	if (!ptr)
-		return 0;
-
-	/* Clear the allocation */
-
-	return memset(ptr, 0, size);
+	return calloc(1, size);
 }
 
 __weak void _rtos2_release(void *ptr)
 {
+	free(ptr);
 }
 
 static struct rtos_kernel kernel = { .state = osKernelInactive };
