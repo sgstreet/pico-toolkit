@@ -198,7 +198,6 @@ struct scheduler
 	unsigned long slice_duration;
 
 	struct sched_queue ready_queue;
-	struct sched_queue suspended_queue;
 
 	struct sched_list tasks;
 	struct sched_list timers;

@@ -457,13 +457,7 @@ void scheduler_create_svc(struct exception_frame *frame)
 	sched_list_push(&scheduler->tasks, &task->scheduler_node);
 
 	/* Add the new task to the ready queue */
-	if (task->flags & SCHEDULER_CREATE_SUSPENDED) {
-
-		/* Suspend the task */
-		task->state = TASK_SUSPENDED;
-		sched_queue_push(&scheduler->suspended_queue, task);
-
-	} else {
+	if ((task->flags & SCHEDULER_CREATE_SUSPENDED) == 0) {
 
 		/* Ready the task */
 		task->state = TASK_READY;
@@ -472,7 +466,10 @@ void scheduler_create_svc(struct exception_frame *frame)
 		/* Since we pushed the task onto the ready queue, do a context switch and return the new task */
 		if (scheduler_is_running() && task->current_priority < sched_get_current()->current_priority)
 			scheduler_request_switch(scheduler_current_core());
-	}
+
+	} else
+		/* Mark as suspended */
+		task->state = TASK_SUSPENDED;
 
 
 	scheduler_spin_unlock();
@@ -520,10 +517,9 @@ void scheduler_suspend_svc(struct scheduler_frame *frame)
 		sched_queue_remove(task);
 		scheduler_timer_remove(task);
 
-		/* Add to the suspend queue */
+		/* Mark as suspended */
 		task->state = TASK_SUSPENDED;
 		task->core = UINT32_MAX;
-		sched_queue_push(&scheduler->suspended_queue, task);
 
 		/* Since a scheduler frame was create we always need a context switch */
 		current->state = TASK_READY;
@@ -534,7 +530,6 @@ void scheduler_suspend_svc(struct scheduler_frame *frame)
 		/* Suspending ourselves, add to the suspend queue */
 		current->state = TASK_SUSPENDED;
 		current->core = UINT32_MAX;
-		sched_queue_push(&scheduler->suspended_queue, current);
 	}
 
 	/* Add any need timer */
@@ -1134,7 +1129,6 @@ int scheduler_init(struct scheduler *new_scheduler, size_t tls_size)
 	new_scheduler->critical = UINT32_MAX;
 	new_scheduler->critical_counter = 0;
 	sched_queue_init(&new_scheduler->ready_queue);
-	sched_queue_init(&new_scheduler->suspended_queue);
 	sched_list_init(&new_scheduler->timers);
 	sched_list_init(&new_scheduler->tasks);
 
