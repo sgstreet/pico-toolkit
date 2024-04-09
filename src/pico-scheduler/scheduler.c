@@ -1188,17 +1188,22 @@ unsigned long scheduler_enter_critical(void)
 	/* When we leave this function, 1) Interrupts are disabled, 2) we are hold the scheduler spin lock */
 	uint32_t state = disable_interrupts();
 
+	/* Do already owne the critical section? */
+	if (scheduler->critical == scheduler_current_core()) {
+		++scheduler->critical_counter;
+		return state;
+	}
+
 	/* Loop trying to get the critical section */
 	while (true) {
 
 		/* In a multicore we need the spinlock */
 		scheduler_spin_lock();
 
-		/* Try to grap the critical sections supporting recursive entrances */
+		/* Try to grap the critical sections supporting recursive entrances, keep the spinlock if successful */
 		if (scheduler->critical == UINT32_MAX || scheduler->critical == scheduler_current_core()) {
 			scheduler->critical = scheduler_current_core();
 			++scheduler->critical_counter;
-			__DSB();
 			return state;
 		}
 
@@ -1212,14 +1217,11 @@ void scheduler_exit_critical(unsigned long state)
 	assert(scheduler_is_running() && scheduler->critical == scheduler_current_core());
 
 	/* Handle nested critical sections */
-	if (--scheduler->critical_counter >= 1) {
-		__DSB();
+	if (--scheduler->critical_counter >= 1)
 		return;
-	}
 
 	/* Release the critical section */
 	scheduler->critical = UINT32_MAX;
-	__DSB();
 
 	/* Now the spin lock and the interrupts */
 	scheduler_spin_unlock();
