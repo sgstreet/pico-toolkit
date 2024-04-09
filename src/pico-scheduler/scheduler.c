@@ -225,7 +225,7 @@ static inline struct task *sched_get_current(void)
 	return task;
 }
 
-static /*inline*/ struct task *sched_set_current(struct task *task)
+static inline struct task *sched_set_current(struct task *task)
 {
 	assert(task == 0 || task->marker == SCHEDULER_TASK_MARKER);
 
@@ -240,14 +240,13 @@ static /*inline*/ struct task *sched_set_current(struct task *task)
 static inline void sched_queue_init(struct sched_queue *queue)
 {
 	assert(queue != 0);
-	queue->size = 0;
 	sched_list_init(&queue->tasks);
 }
 
 static inline bool sched_queue_empty(struct sched_queue *queue)
 {
 	assert(queue != 0);
-	return queue->size == 0;
+	return sched_list_empty(&queue->tasks);
 }
 
 static inline void sched_queue_remove(struct task *task)
@@ -255,13 +254,10 @@ static inline void sched_queue_remove(struct task *task)
 	assert(task != 0);
 
 	sched_list_remove(&task->queue_node);
-	if (task->current_queue) {
-		--task->current_queue->size;
-		task->current_queue = 0;
-	}
+	task->current_queue = 0;
 }
 
-static inline void sched_queue_push(struct sched_queue *queue, struct task *task)
+static void sched_queue_push(struct sched_queue *queue, struct task *task)
 {
 	assert(queue != 0 && task != 0 && task->current_queue == 0);
 
@@ -281,10 +277,9 @@ static inline void sched_queue_push(struct sched_queue *queue, struct task *task
 		sched_list_push(&queue->tasks, &task->queue_node);
 
 	task->current_queue = queue;
-	++queue->size;
 }
 
-static inline struct task *sched_queue_pop(struct sched_queue *queue, unsigned long core)
+static struct task *sched_queue_pop(struct sched_queue *queue, unsigned long core)
 {
 	struct task *task;
 
@@ -293,10 +288,8 @@ static inline struct task *sched_queue_pop(struct sched_queue *queue, unsigned l
 	/* Just take the first task */
 	if (core == UINT32_MAX) {
 		task = sched_list_pop_entry(&queue->tasks, struct task, queue_node);
-		if (task) {
-			--queue->size;
+		if (task)
 			task->current_queue = 0;
-		}
 		return task;
 	}
 
@@ -317,13 +310,13 @@ static inline unsigned long sched_queue_highest_priority(struct sched_queue *que
 
 	assert(queue != 0);
 
-	if (queue->size != 0)
+	if (!sched_queue_empty(queue))
 		highest = sched_list_first_entry(&queue->tasks, struct task, queue_node)->current_priority;
 
 	return highest;
 }
 
-static inline void sched_queue_reprioritize(struct task *task, unsigned long new_priority)
+static void sched_queue_reprioritize(struct task *task, unsigned long new_priority)
 {
 	assert(task != 0 && new_priority >= 0 && new_priority < SCHEDULER_NUM_TASK_PRIORITIES);
 

@@ -122,9 +122,9 @@ struct sched_list
 	struct sched_list *prev;
 };
 
+/* Done like this to allow easy re-implementation */
 struct sched_queue
 {
-	unsigned int size;
 	struct sched_list tasks;
 };
 
