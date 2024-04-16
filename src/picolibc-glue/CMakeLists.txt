@@ -1,7 +1,9 @@
 if (NOT TARGET picolibc_glue)
 
     pico_add_library(picolibc_glue)
-
+    
+	add_dependencies(picolibc_glue picolibc)
+	
     target_sources(picolibc_glue INTERFACE
             ${CMAKE_CURRENT_LIST_DIR}/iob.c
             ${CMAKE_CURRENT_LIST_DIR}/retarget-lock.c
@@ -14,8 +16,8 @@ if (NOT TARGET picolibc_glue)
 	
 	target_include_directories(picolibc_glue_headers INTERFACE ${CMAKE_CURRENT_LIST_DIR}/include)
 	target_compile_options(picolibc_glue INTERFACE --specs=$ENV{PICOLIBC_PATH}/lib/picolibc.specs)
-	target_compile_options(picolibc_glue INTERFACE -O0)
-	target_compile_options(picolibc_glue INTERFACE -g)
+#	target_compile_options(picolibc_glue INTERFACE -O0)
+#	target_compile_options(picolibc_glue INTERFACE -g)
 	target_link_options(picolibc_glue INTERFACE --specs=$ENV{PICOLIBC_PATH}/lib/picolibc.specs)
 	target_link_options(picolibc_glue INTERFACE -T${CMAKE_CURRENT_LIST_DIR}/picolibc-empty.ld)
 	
