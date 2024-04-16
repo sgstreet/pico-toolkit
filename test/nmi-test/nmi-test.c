@@ -15,10 +15,8 @@
 #include <hardware/timer.h>
 #include <hardware/irq.h>
 
-#include <pico/multicore.h>
-
 #include <pico/toolkit/iob.h>
-#include <pico/toolkit/multicore-irq.h>
+#include <pico/toolkit/nmi.h>
 
 #define UART_ID uart0
 #define BAUD_RATE 115200
@@ -63,18 +61,48 @@ static void blink_led(void)
 	gpio_xor_mask(1UL << PICO_DEFAULT_LED_PIN);
 }
 
+static void irq_26(void)
+{
+}
+
+static void irq_27(void)
+{
+}
+
+static void irq_28(void)
+{
+}
+
+static void irq_29(void)
+{
+}
+
+static void irq_30(void)
+{
+}
+
 int main(int argc, char **argv)
 {
 	printf("Initializing LED\n");
 	gpio_init(PICO_DEFAULT_LED_PIN);
 	gpio_set_dir(PICO_DEFAULT_LED_PIN, GPIO_OUT);
 
-	irq_set_exclusive_handler(31, blink_led);
-	irq_set_affinity(31, 1);
-	irq_set_enabled(31, true);
+	nmi_set_enable(24, true);
+	nmi_set_enable(26, true);
+	nmi_set_enable(27, true);
+	nmi_set_enable(28, true);
+	nmi_set_enable(29, true);
+	nmi_set_enable(30, true);
 
+	nmi_set_enable(30, false);
+	nmi_set_enable(28, false);
+	nmi_set_enable(29, false);
+	nmi_set_enable(26, false);
+	nmi_set_enable(27, false);
+
+	/* The NMI mask is diverted before the NVIC and so will never trigger */
 	while (true) {
-		irq_set_pending(31);
+		irq_set_pending(24);
 		busy_wait_ms(125);
 	}
 

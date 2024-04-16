@@ -7,6 +7,12 @@ target_sources(multicore_support INTERFACE
 	multicore-irq.c
 )
 
+pico_wrap_function(multicore_support irq_set_priority)
+pico_wrap_function(multicore_support irq_get_priority)
+pico_wrap_function(multicore_support irq_set_enabled)
+pico_wrap_function(multicore_support irq_set_enabled)
+pico_wrap_function(multicore_support irq_set_pending)
+
 target_include_directories(multicore_support_headers INTERFACE ${CMAKE_CURRENT_LIST_DIR}/include)
 
 target_link_libraries(multicore_support INTERFACE
@@ -15,6 +21,7 @@ target_link_libraries(multicore_support INTERFACE
 	hardware_sync
 	pico_bootrom
 	pico_multicore
+	pico_nmi
 	pico_scheduler
 )
 

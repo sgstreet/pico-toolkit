@@ -94,21 +94,21 @@ void multicore_startup_hook(void)
 	if (get_core_num() == 0) {
 
 		/* Disable the processor interrupts */
-		atomic_fetch_and(&syscfg_hw->proc0_nmi_mask, ~(1UL << SIO_IRQ_PROC0_IRQn));
-		atomic_fetch_and(&syscfg_hw->proc1_nmi_mask, ~(1UL << SIO_IRQ_PROC1_IRQn));
+		atomic_fetch_and(&syscfg_hw->proc0_nmi_mask, ~(1UL << SIO_IRQ_PROC0));
+		atomic_fetch_and(&syscfg_hw->proc1_nmi_mask, ~(1UL << SIO_IRQ_PROC1));
 
 		/* Launch the start up on core 1 */
 		multicore_launch_core1(multicore_start);
 
 		/* Spin until the nmi mask is set again */
-		while ((atomic_load(&syscfg_hw->proc1_nmi_mask) & (1UL << SIO_IRQ_PROC1_IRQn)) == 0);
+		while ((atomic_load(&syscfg_hw->proc1_nmi_mask) & (1UL << SIO_IRQ_PROC1)) == 0);
 
 		/* Re-enable the core zero interrupt */
-		atomic_fetch_or(&syscfg_hw->proc0_nmi_mask, 1UL << SIO_IRQ_PROC0_IRQn);
+		atomic_fetch_or(&syscfg_hw->proc0_nmi_mask, (1UL << SIO_IRQ_PROC0));
 
 	} else
-		/* Let will release the core zero startup */
-		atomic_fetch_or(&syscfg_hw->proc1_nmi_mask, 1UL << SIO_IRQ_PROC1_IRQn);
+		/* Let's will release the core zero startup */
+		atomic_fetch_or(&syscfg_hw->proc1_nmi_mask, (1UL << SIO_IRQ_PROC1));
 }
 
 void multicore_shutdown_hook(void)

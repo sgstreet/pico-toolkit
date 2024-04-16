@@ -13,7 +13,10 @@
 
 #include <pico/toolkit/tls.h>
 #include <pico/toolkit/cmsis.h>
+#include <pico/toolkit/nmi.h>
+#include <pico/toolkit/multicore-irq.h>
 
+#include <pico/platform.h>
 #include <pico/multicore.h>
 #include <pico/bootrom.h>
 
@@ -32,8 +35,21 @@ enum multicore_cmd
 	MULTICORE_UPDATE_CONFIG = 0xe0000000,
 };
 
-static core_local bool irq_enabled[32]  = { 0 };
-static core_local uint8_t irq_priority[32]  = { 0 };
+extern void __real_irq_set_priority(uint num, uint8_t hardware_priority);
+extern uint __real_irq_get_priority(uint num);
+extern void __real_irq_set_enabled(uint num, bool enabled);
+extern bool __real_irq_is_enabled(uint num);
+extern void __real_irq_set_pending(uint num);
+
+void __wrap_irq_set_priority(uint num, uint8_t hardware_priority);
+uint __wrap_irq_get_priority(uint num);
+void __wrap_irq_set_enabled(uint num, bool enabled);
+bool __wrap_irq_is_enabled(uint num);
+void __wrap_irq_set_pending(uint num);
+
+static core_local bool irq_enabled[NUM_IRQS]  = { 0 };
+static core_local uint8_t irq_priority[NUM_IRQS]  = { 0 };
+static uint8_t irq_affinity[NUM_IRQS] = { 0 };
 
 static void pend_irq_cmd(IRQn_Type irq)
 {
@@ -53,7 +69,7 @@ static void pend_irq_cmd(IRQn_Type irq)
 			break;
 
 		default:
-			irq_set_pending(irq);
+			__real_irq_set_pending(irq);
 			break;
 	}
 
@@ -74,11 +90,16 @@ static void enable_irq_cmd(IRQn_Type irq)
 	if (irq < 0)
 		return;
 
-	/* Clear any pending interrupt */
-	irq_clear(irq);
+	/* Enable, passing real time (-1) priorities to the NMI */
+	if (cls_datum(irq_priority)[irq] != UINT8_MAX) {
 
-	/* Then enable it */
-	irq_set_enabled(irq, true);
+		/* Clear any pending interrupt */
+		irq_clear(irq);
+
+		/* Then enable it */
+		__real_irq_set_enabled(irq, true);
+	} else
+		nmi_set_enable(irq, true);
 
 	/* And update the cache */
 	cls_datum(irq_enabled)[irq] = true;
@@ -90,17 +111,21 @@ static void disable_irq_cmd(IRQn_Type irq)
 	if (irq < 0)
 		return;
 
-	/* Forward */
-	irq_set_enabled(irq, false);
+	/* Disables passing real time (-1) priorites to the NMI */
+	if (cls_datum(irq_priority)[irq] != UINT8_MAX)
+		__real_irq_set_enabled(irq, false);
+	else
+		nmi_set_enable(irq, false);
 
 	/* And Update the cache */
 	cls_datum(irq_enabled)[irq] = false;
 }
 
-static void set_priority_cmd(IRQn_Type irq, uint32_t priority)
+static void set_priority_cmd(IRQn_Type irq, uint8_t priority)
 {
-	/* Set the priority */
-	irq_set_priority(irq, priority);
+	/* Use 0xff (-1) as the real time interrupt priority i.e. boost to NMI, Use cmsis to correctly handle system interrupts */
+	if (priority != UINT8_MAX)
+		NVIC_SetPriority(irq, priority);
 
 	/* And Update the cache */
 	cls_datum(irq_priority)[irq] = priority;
@@ -112,7 +137,7 @@ static void update_irq_config_cmd(IRQn_Type irq)
 	cls_datum(irq_priority)[irq] = irq_get_priority(irq);
 }
 
-static __unused void multicore_irq_handler(void)
+static void multicore_irq_handler(void)
 {
 	uint32_t cmd;
 
@@ -160,7 +185,7 @@ static __unused void multicore_irq_handler(void)
 
 			case MULTICORE_SET_PRIORITY: {
 				IRQn_Type irq = (cmd & 0xffff) - 16;
-				uint32_t priority = (cmd >> 16) & 0x00ff;
+				uint8_t priority = (cmd >> 16) & 0x00ff;
 				set_priority_cmd(irq, priority);
 				break;
 			}
@@ -181,7 +206,6 @@ static __unused void multicore_irq_handler(void)
 }
 __alias("multicore_irq_handler") void SIO_IRQ_PROC0_Handler(void);
 __alias("multicore_irq_handler") void SIO_IRQ_PROC1_Handler(void);
-__alias("multicore_irq_handler") void NMI_Handler(void);
 
 void multicore_irq_set_enable(uint num, uint core, bool enabled)
 {
@@ -244,17 +268,91 @@ void multicore_irq_clear(uint num, uint core)
 	multicore_fifo_push_blocking(MULTICORE_CLEAR_IRQ | num + 16);
 }
 
+void irq_set_affinity(uint num, uint core)
+{
+	assert(num < NUM_IRQS);
+	irq_affinity[num] = core;
+}
+
+uint irq_get_affinity(uint num)
+{
+	assert(num < NUM_IRQS);
+	return irq_affinity[num];
+}
+
+void __wrap_irq_set_priority(uint num, uint8_t hardware_priority)
+{
+	assert(num < NUM_IRQS);
+
+	if (irq_affinity[num] == get_core_num()) {
+		set_priority_cmd(num, hardware_priority);
+		return;
+	}
+
+	multicore_fifo_push_blocking(MULTICORE_SET_PRIORITY | hardware_priority << 16 | num + 16);
+}
+
+uint __wrap_irq_get_priority(uint num)
+{
+	assert(num < NUM_IRQS);
+
+	return cls_datum_core(irq_affinity[num], irq_priority)[num];
+}
+
+void __wrap_irq_set_enabled(uint num, bool enabled)
+{
+	assert(num < NUM_IRQS);
+
+	/* Are we running on the target core? */
+	if (irq_affinity[num] == get_core_num()) {
+
+		/* Bypass the multicore fifo */
+		if (enabled)
+			enable_irq_cmd(num);
+		else
+			disable_irq_cmd(num);
+
+		return;
+	}
+
+	/* Nope, forward to the other core */
+	if (enabled)
+		multicore_fifo_push_blocking(MULTICORE_IRQ_ENABLE | num + 16);
+	else
+		multicore_fifo_push_blocking(MULTICORE_IRQ_DISABLE | num + 16);
+
+}
+
+bool __wrap_irq_is_enabled(uint num)
+{
+	assert(num < NUM_IRQS);
+
+	return cls_datum_core(irq_affinity[num], irq_enabled)[num];
+}
+
+void __wrap_irq_set_pending(uint num)
+{
+	assert(num < NUM_IRQS);
+
+	/* Are we running on the target core? */
+	if (irq_affinity[num] == get_core_num()) {
+		pend_irq_cmd(num);
+		return;
+	}
+
+	/* Nope, forward to the other core */
+	multicore_fifo_push_blocking(MULTICORE_PEND_IRQ | num + 16);
+}
+
 __constructor void multicore_irq_init(void)
 {
 	/* More work depending on the core */
 	if (get_core_num()) {
 
-		/* Enable the core interrupt boosted to NMI */
-//		set_priority_cmd(SIO_IRQ_PROC1_IRQn, 0);
-//		enable_irq_cmd(SIO_IRQ_PROC1_IRQn);
-
-		/* Boost the core interrupt to NMI, required by the scheduler */
-		atomic_fetch_or(&syscfg_hw->proc1_nmi_mask, 1UL << SIO_IRQ_PROC1_IRQn);
+		/* Mark as real time and enable our end of the fifo */
+		irq_set_affinity(SIO_IRQ_PROC1, get_core_num());
+		irq_set_priority(SIO_IRQ_PROC1, UINT8_MAX);
+		irq_set_enabled(SIO_IRQ_PROC1, true);
 
 		/* Hopefully we are going to left with the irq running */
 		((void (*)(void))rom_func_lookup(rom_table_code('W', 'V')))();
@@ -264,9 +362,9 @@ __constructor void multicore_irq_init(void)
 		/* Initialize core 1 */
 		multicore_launch_core1(multicore_irq_init);
 
-		/* Enable the core interrupt boosted to NMI */
-//		set_priority_cmd(SIO_IRQ_PROC0_IRQn, 0);
-//		enable_irq_cmd(SIO_IRQ_PROC0_IRQn);
-		atomic_fetch_or(&syscfg_hw->proc0_nmi_mask, 1UL << SIO_IRQ_PROC0_IRQn);
+		/* Boost the core interrupt to NMI */
+		irq_set_affinity(SIO_IRQ_PROC0, get_core_num());
+		irq_set_priority(SIO_IRQ_PROC0, UINT8_MAX);
+		irq_set_enabled(SIO_IRQ_PROC0, true);
 	}
 }

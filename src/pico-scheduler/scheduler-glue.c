@@ -163,7 +163,7 @@ static void SysTick_Handler(void)
 
 void scheduler_startup_hook(void)
 {
-	/* First set the rtos system exception priority */
+	/* First set the rtos system exception priority, done this way SDK does not support setting the system irq priorities */
 	NVIC_SetPriority(PendSV_IRQn, SCHEDULER_PENDSV_PRIORITY);
 	NVIC_SetPriority(SVCall_IRQn, SCHEDULER_SVC_PRIORITY);
 	NVIC_SetPriority(SysTick_IRQn, SCHEDULER_SYSTICK_PRIORITY);

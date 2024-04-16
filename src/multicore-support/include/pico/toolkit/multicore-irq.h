@@ -19,4 +19,7 @@ uint mulitcore_irq_get_priority(uint num, uint core);
 void multicore_irq_set_pending(uint num, uint core);
 void multicore_irq_clear(uint num, uint core);
 
+void irq_set_affinity(uint num, uint core);
+uint irq_get_affinity(uint num);
+
 #endif
