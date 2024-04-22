@@ -6,5 +6,11 @@ if (NOT TARGET toolkit_support)
 	
     target_sources(toolkit_support INTERFACE
     )
+    
+    target_link_libraries(toolkit_support INTERFACE
+		pico_atomic
+		cmsis_core
+	)
+    
 
 endif()

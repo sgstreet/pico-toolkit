@@ -31,7 +31,6 @@ static inline unsigned int spin_lock_irqsave(spinlock_t *spinlock)
 
 	uint32_t state = disable_interrupts();
 	spin_lock(spinlock);
-	__SEV();
 	return state;
 }
 
@@ -65,6 +64,7 @@ static inline void spin_unlock(spinlock_t *spinlock)
 {
 	assert(spinlock != 0);
 	atomic_fetch_add((uint16_t *)spinlock, 1);
+	__SEV();
 }
 
 static inline void spin_unlock_irqrestore(spinlock_t *spinlock, unsigned int state)

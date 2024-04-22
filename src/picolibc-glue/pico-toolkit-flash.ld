@@ -129,7 +129,7 @@ SECTIONS
     .data : {
         __data_start__ = .;
         *(vtable)
-
+        *(.pico-rtt*)
         *(.time_critical*)
 
         /* remaining .text and .rodata; i.e. stuff we exclude above because we want it in RAM */
