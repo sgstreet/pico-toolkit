@@ -1,7 +1,11 @@
 /*
- * Copyright (C) 2022 Stephen Street
+ * Copyright (C) 2024 Stephen Street
  *
- * preemt-sched.h
+ * This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this
+ * file, You can obtain one at http://mozilla.org/MPL/2.0/.
+ *
+ * scheduler.h
  *
  * Created on: Feb 13, 2017
  *     Author: Stephen Street (stephen@redrocketcomputing.com)

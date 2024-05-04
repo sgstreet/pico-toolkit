@@ -1,11 +1,11 @@
 /*
- * Copyright (C) 2021 Red Rocket Computing, LLC
+ * Copyright (C) 2024 Stephen Street
  *
  * This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  *
- * fault-m7-asm.S
+ * svc-asm.S
  *
  * Created on: Mar 27, 2021
  *     Author: Stephen Street (stephen@redrocketcomputing.com)

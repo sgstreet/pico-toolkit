@@ -1,3 +1,12 @@
+#
+# Copyright (C) 2024 Stephen Street
+#
+# This Source Code Form is subject to the terms of the Mozilla Public
+# License, v. 2.0. If a copy of the MPL was not distributed with this
+# file, You can obtain one at http://mozilla.org/MPL/2.0/.
+#
+
+ 
 # This is a copy of <PICO_TOOLKIT_PATH>/external/pico_toolkit_import.cmake
 
 # This can be dropped into an external project to help locate pico-toolkit

@@ -1,9 +1,15 @@
 /*
- * Copyright 2015 Stephen Street <stephen@redrocketcomputing.com>
+ * Copyright 2024 Stephen Street
  * 
  * This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
- * file, You can obtain one at http://mozilla.org/MPL/2.0/. 
+ * file, You can obtain one at http://mozilla.org/MPL/2.0/.
+ *
+ * backtrace.h
+ *
+ *  Created on: 2015
+ *      Author: Stephen Street (stephen@redrocketcomputing.com)
+ *
  */
 
 #ifndef BACKTRACE_H_

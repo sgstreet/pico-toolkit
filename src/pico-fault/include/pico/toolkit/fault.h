@@ -4,6 +4,11 @@
  * This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
+ *
+ * fault.h
+ *
+ * Created on: 2015
+ *      Author: Stephen Street (stephen@redrocketcomputing.com)
  */
 
 #ifndef FAULT_H_
