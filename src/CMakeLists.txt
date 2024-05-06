@@ -8,7 +8,6 @@
 
 pico_add_subdirectory(toolkit-support)
 pico_add_subdirectory(pico-atomic)
-pico_add_subdirectory(pico-sbrk)
 pico_add_subdirectory(pico-tls)
 pico_add_subdirectory(pico-fault)
 pico_add_subdirectory(pico-nmi)
