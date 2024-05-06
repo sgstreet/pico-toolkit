@@ -28,9 +28,9 @@ target_link_libraries(multicore_support INTERFACE
 	hardware_irq
 	hardware_sync
 	pico_bootrom
+	pico_scheduler
 	pico_multicore
 	pico_nmi
-	pico_scheduler
 )
 
 endif()
