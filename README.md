@@ -21,7 +21,7 @@ Have a question or comment? [**Pico Toolkit Discussions**](https://github.com/sg
 | [pico-atomic](src/pico-atomic/pico-atomic.md) | Provides multicore safe atomic options. |
 | [pico-cmsis-rtos2](src/pico-cmsis-rtos2/pico-cmsis-rtos2.md) | Includes the CMSIS RTOS v2 personality on top of the pico-scheduler |
 | [pico-fault](src/pico-fault/pico-fault.md) | Cortex-M0+ fault handling and exception backtrace support. |
-| [pico-nmi]() | Create a simple interface to the RP2040 NMI block. |
+| [pico-nmi](src/pico-nmi/pico-nmi.md) | Create a simple interface to the RP2040 NMI block. |
 | [pico-rtt](src/pico-rtt/pico-rtt.md) | Include Segger Real Time Transfer (RTT) support. This also works with OpenOCD. |
 | [pico-scheduler](src/pico-scheduler/pico-scheduler.md) | A SMP capable real time scheduler with flexible Futex support including priority inheritance and contention tracking. |
 | [pico-threads](src/pico-threads/pico-threads.md) | Includes the ISO C11 threads personality. |
