@@ -19,8 +19,8 @@
 
 #include <picotls.h>
 
-#include <pico/toolkit/tls.h>
 #include <pico/toolkit/compiler.h>
+#include <pico/toolkit/tls.h>
 
 struct arguments
 {
@@ -35,6 +35,7 @@ extern void _thrd_release(void *ptr);
 
 /* Needed to wrap the main thread */
 extern void scheduler_startup_hook(void);
+extern void scheduler_shutdown_hook(void);
 extern char __arm32_tls_tcb_offset;
 
 static struct tss tss_map[__THRD_KEYS_MAX] = { [0 ... __THRD_KEYS_MAX - 1] = { .used = false, .destructor = 0 } };
@@ -45,6 +46,7 @@ static mtx_t thrds_lock;
 static struct linked_list thrds;
 
 static struct scheduler scheduler;
+static struct task *main_task = 0;
 
 __weak void *_thrd_alloc(size_t size)
 {
@@ -409,7 +411,7 @@ static void thrds_init(void)
 
 	/* Setup the main task */
 	struct task_descriptor main_desc = { .entry_point = 0, .exit_handler = thrd_exit_handler, .context = thread, .flags = SCHEDULER_NO_TLS_INIT | SCHEDULER_NO_FRAME_INIT | SCHEDULER_PRIMORDIAL_TASK, .priority = __THRD_PRIORITY };
-	struct task *main_task = scheduler_create(thread->stack, 0, &main_desc);
+	main_task = scheduler_create(thread->stack, 0, &main_desc);
 	if (!main_task)
 		abort();
 
@@ -435,10 +437,29 @@ static void thrds_init(void)
 
 	/* Now startup the scheduler by call the start hook and mark as running */
 	scheduler_startup_hook();
-	scheduler.running = true;
+	scheduler.running = 1;
 
 	/* Now yield which send us through the scheduler and return here */
 	scheduler_yield();
+}
+
+static __destructor void thrds_fini(void)
+{
+	/* Do we need to shutdown? */
+	if (main_task) {
+
+		/* This triggers the clean shutdown when the main task is the only one running */
+		scheduler_set_flags(main_task, SCHEDULER_IGNORE_VIABLE);
+
+		/* We need to handle the running count for core 0 */
+		--scheduler.running;
+
+		/* Forward to shutdown hook */
+		scheduler_shutdown_hook();
+
+		/* Wait for the scheduler to shutdown */
+		while (scheduler_is_running());
+	}
 }
 
 int	_thrd_create(thrd_t *thrd, int (*func)(void *), void *arg, thrd_attr_t *attr)

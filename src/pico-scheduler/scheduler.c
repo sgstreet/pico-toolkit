@@ -18,8 +18,9 @@
 #include <limits.h>
 #include <time.h>
 
-#include <pico/toolkit/cmsis.h>
 #include <pico/toolkit/tls.h>
+
+#include <pico/toolkit/cmsis.h>
 #include <pico/toolkit/scheduler.h>
 
 #include "svc.h"
@@ -827,7 +828,17 @@ struct task *debug_tasks[25];
 __weak void scheduler_idle_hook(void)
 {
 	scheduler_spin_unlock();
+
+	/* Wait for some indication of work */
 	__WFI();
+
+	/*
+	 * This might have been a some kind of scheduler request, since we are already
+	 * inside the PendSV handler we need to ensure it is cleared to prevent double
+	 * context switches.
+	 */
+	SCB->ICSR = SCB_ICSR_PENDSVCLR_Msk;
+
 	scheduler_spin_lock();
 
 	assert(cls_datum(current_task == 0));
