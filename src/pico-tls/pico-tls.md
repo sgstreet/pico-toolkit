@@ -1,7 +1,7 @@
 # Pico Thread and Core Local Storage
 ## Detailed Description
-[Picolibc](https://github.com/picolibc/picolibc) has re-implemented 
+[Picolibc](https://github.com/picolibc/picolibc) uses thread local compiler support 
 <!--stackedit_data:
-eyJoaXN0b3J5IjpbLTE2MTE0MjEzMjMsLTgzNjQyMDI3NSwtOT
-MyNjYxODAyLC0xNzYwNTEzNTk4LDc4NzM2ODUxOF19
+eyJoaXN0b3J5IjpbOTkzOTQ2NjgsLTgzNjQyMDI3NSwtOTMyNj
+YxODAyLC0xNzYwNTEzNTk4LDc4NzM2ODUxOF19
 -->
