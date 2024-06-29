@@ -64,3 +64,6 @@ add_subdirectory(hello-world)
 
 Notice the include of `pico_toolkit_import.cmake`.  You are good to go, configure and build as you normally would.  You can add `-DPICO_TOOLKIT_TESTS_ENABLED=true` to your cmake configure to build the include test projects.
 
+<!--stackedit_data:
+eyJoaXN0b3J5IjpbLTE2MzQ4ODEwOTddfQ==
+-->
