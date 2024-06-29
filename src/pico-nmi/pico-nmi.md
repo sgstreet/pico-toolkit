@@ -34,3 +34,6 @@ Globally and atomically mask all NMI interrupts returning the current state at a
 #### `void nmi_unmask(uint64_t state)`
 
 Globally and atomically unmask all NMI interrupts using the state returned by a previous call to `nmi_mask`.
+<!--stackedit_data:
+eyJoaXN0b3J5IjpbMTQ0Nzk1MDc0M119
+-->
