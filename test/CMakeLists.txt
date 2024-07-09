@@ -17,5 +17,6 @@ add_subdirectory(multicore-irq-test)
 add_subdirectory(rtos-benchmark)
 add_subdirectory(nmi-test)
 add_subdirectory(rtt-test)
+add_subdirectory(atomic-test)
 #add_subdirectory(thread-metric)
 

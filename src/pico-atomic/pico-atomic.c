@@ -27,10 +27,9 @@
 #define ATOMIC_STRIPE 4UL
 #define ATOMIC_LOCKS 16UL
 #define ATOMIC_LOCK_WIDTH 2UL
-#define ATOMIC_LOCK_IDX_Pos ((sizeof(unsigned int) * 8) - (__builtin_clz(ATOMIC_STRIPE)))
+#define ATOMIC_LOCK_IDX_Pos ((sizeof(unsigned long) * 8) - (__builtin_clz(ATOMIC_STRIPE - 1)))
 #define ATOMIC_LOCK_IDX_Msk (ATOMIC_LOCKS - 1UL)
 #define ATOMIC_LOCK_REG ((io_rw_32 *)(WATCHDOG_BASE + WATCHDOG_SCRATCH3_OFFSET))
-#define SIO_CPUID (*(io_ro_32 *)(SIO_BASE + SIO_CPUID_OFFSET))
 
 static void __atomic_init(void)
 {
@@ -48,7 +47,7 @@ PREINIT_WITH_PRIORITY(__atomic_init, 030);
  */
 static __optimize uint32_t __atomic_lock(volatile void *mem)
 {
-	const uint32_t core = SIO_CPUID;
+	const uint32_t core = get_core_num();
 	const uint32_t lock_idx = (((uintptr_t)mem) >> ATOMIC_LOCK_IDX_Pos) & ATOMIC_LOCK_IDX_Msk;
 	const uint32_t lock_pos = lock_idx * ATOMIC_LOCK_WIDTH;
 	const uint32_t lock_mask = ((1UL << ATOMIC_LOCK_WIDTH) - 1) << lock_pos;
@@ -81,7 +80,7 @@ static __optimize void __atomic_unlock(volatile void *mem, uint32_t state)
 {
 	const uint32_t lock_idx = (((uintptr_t)mem) >> ATOMIC_LOCK_IDX_Pos) & ATOMIC_LOCK_IDX_Msk;
 	const uint32_t lock_pos = lock_idx * ATOMIC_LOCK_WIDTH;
-	const uint32_t locked_mask = 1UL << (lock_pos + SIO_CPUID);
+	const uint32_t locked_mask = 1UL << (lock_pos + get_core_num());
 
 	__dmb();
 	hw_clear_bits(ATOMIC_LOCK_REG, locked_mask);
