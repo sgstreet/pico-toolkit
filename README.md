@@ -27,7 +27,6 @@ Have a question or comment? [**Pico Toolkit Discussions**](https://github.com/sg
 | [picolibc-glue](src/picolibc-glue/picolibc-glue.md) | Implements the extensible retargetable locking mechanism utilized by Picolibc. Locking works transparently with and without an RTOS. |
 | [picolibc](src/picolibc/picolibc.md) | Builds and integrates the Picolibc version of Newlib tuned for the Cortex-M0+ processor. Unwind table and function names are included in the build. |
 | [toolkit-support](src/toolkit-support/toolkit-support.md) | Common toolkit header files including a header only ticket based spin locks and intrusive linked lists. |
-| 
 
 # Using the Pico Toolkit
 The [Pico Toolkit](https://github.com/sgstreet/pico-toolkit.git) integrates with the [Pico SDK](https://github.com/raspberrypi/pico-sdk) and your project following [Getting Started with the Raspberry Pi Pico Guide](https://datasheets.raspberrypi.com/pico/getting-started-with-pico.pdf). In addition to the Pico SDK build dependencies of `cmake gcc-arm-none-eabi libnewlib-arm-none-eabi build-essential` the toolkit requires the `meson` build system when using the [**picolibc**](src/picolibc) interface.
