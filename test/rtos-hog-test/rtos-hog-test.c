@@ -102,6 +102,10 @@ static void hog_task(void *context)
 		++hog->cores[core];
 		if ((random() & 0x8) == 0) {
 			int status = scheduler_futex_wake(&futex, true);
+			if (status < 0) {
+				printf("failed to wait for futex: %d\n", status);
+				abort();
+			}
 			++kick_counter;
 			scheduler_yield();
 		}

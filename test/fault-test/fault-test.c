@@ -63,10 +63,9 @@ int main(int argc, char **argv)
 	volatile uint32_t *addr = (uint32_t *)0x5fffffff;
 
 	__asm volatile (
-		"ldr r7, =0xdeadbeef \n"
-		"mov r3, r7 \n"
-		"mov r10, r7 \n"
-		"mov r12, r7 \n"
+		"ldr r3, =0xdeadbeef \n"
+		"mov r10, r3 \n"
+		"mov r12, r3 \n"
 	);
 
 	return *addr;

@@ -62,28 +62,28 @@ static __attribute__((constructor)) void console_init(void)
 	puts("console initialized");
 }
 
-static void blink_led(void)
+static __unused void blink_led(void)
 {
 	gpio_xor_mask(1UL << PICO_DEFAULT_LED_PIN);
 }
 
-static void irq_26(void)
+static __unused void irq_26(void)
 {
 }
 
-static void irq_27(void)
+static __unused void irq_27(void)
 {
 }
 
-static void irq_28(void)
+static __unused void irq_28(void)
 {
 }
 
-static void irq_29(void)
+static __unused void irq_29(void)
 {
 }
 
-static void irq_30(void)
+static __unused void irq_30(void)
 {
 }
 

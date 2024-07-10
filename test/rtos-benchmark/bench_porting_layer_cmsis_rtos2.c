@@ -42,7 +42,6 @@ static osThreadId_t thread_ids[10] = { 0 };
 static osMessageQueueId_t queue_ids[5] = { 0 };
 static osSemaphoreId_t semaphore_ids[5] = { 0 };
 static osMutexId_t mutex_ids[5] = { 0 };
-static osMemoryPoolId_t pool_id;
 
 int picolibc_putc(char c, FILE *file)
 {

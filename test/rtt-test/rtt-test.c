@@ -97,6 +97,6 @@ int main()
 	/* Print also */
 	uint32_t clock = SystemCoreClock;
 	uint64_t id = board_id();
-	printf("Hello from board 0x%llx running at %uHz\n", id, clock);
-	fprintf(diag, "Hello from board 0x%llx running at %uHz\n", id, clock);
+	printf("Hello from board 0x%llx running at %luHz\n", id, clock);
+	fprintf(diag, "Hello from board 0x%llx running at %luHz\n", id, clock);
 }

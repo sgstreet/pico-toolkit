@@ -76,7 +76,7 @@ __constructor void console_init(void)
 
 int stdout_putchar(char txchar)
 {
-	putchar(txchar);
+	return putchar(txchar);
 }
 
 int main (void)
