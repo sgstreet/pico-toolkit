@@ -223,9 +223,9 @@ void multicore_irq_set_enable(uint num, uint core, bool enabled)
 
 	/* Nope, forward to the other core */
 	if (enabled)
-		multicore_fifo_push_blocking(MULTICORE_IRQ_ENABLE | num + 16);
+		multicore_fifo_push_blocking(MULTICORE_IRQ_ENABLE | (num + 16));
 	else
-		multicore_fifo_push_blocking(MULTICORE_IRQ_DISABLE | num + 16);
+		multicore_fifo_push_blocking(MULTICORE_IRQ_DISABLE | (num + 16));
 }
 
 bool multicore_irq_is_enabled(uint num, uint core)
@@ -241,7 +241,7 @@ void multicore_irq_set_priority(uint num, uint core, uint8_t hardware_priority)
 		return;
 	}
 
-	multicore_fifo_push_blocking(MULTICORE_SET_PRIORITY | hardware_priority << 16 | num + 16);
+	multicore_fifo_push_blocking(MULTICORE_SET_PRIORITY | (hardware_priority << 16) | (num + 16));
 }
 
 uint mulitcore_irq_get_priority(uint num, uint core)
@@ -259,7 +259,7 @@ void multicore_irq_set_pending(uint num, uint core)
 	}
 
 	/* Nope, forward to the other core */
-	multicore_fifo_push_blocking(MULTICORE_PEND_IRQ | num + 16);
+	multicore_fifo_push_blocking(MULTICORE_PEND_IRQ | (num + 16));
 }
 
 void multicore_irq_clear(uint num, uint core)
@@ -271,7 +271,7 @@ void multicore_irq_clear(uint num, uint core)
 	}
 
 	/* Nope, forward to the other core */
-	multicore_fifo_push_blocking(MULTICORE_CLEAR_IRQ | num + 16);
+	multicore_fifo_push_blocking(MULTICORE_CLEAR_IRQ | (num + 16));
 }
 
 void irq_set_affinity(uint num, uint core)
@@ -295,7 +295,7 @@ void __wrap_irq_set_priority(uint num, uint8_t hardware_priority)
 		return;
 	}
 
-	multicore_fifo_push_blocking(MULTICORE_SET_PRIORITY | hardware_priority << 16 | num + 16);
+	multicore_fifo_push_blocking(MULTICORE_SET_PRIORITY | (hardware_priority << 16) | (num + 16));
 }
 
 uint __wrap_irq_get_priority(uint num)
@@ -323,9 +323,9 @@ void __wrap_irq_set_enabled(uint num, bool enabled)
 
 	/* Nope, forward to the other core */
 	if (enabled)
-		multicore_fifo_push_blocking(MULTICORE_IRQ_ENABLE | num + 16);
+		multicore_fifo_push_blocking(MULTICORE_IRQ_ENABLE | (num + 16));
 	else
-		multicore_fifo_push_blocking(MULTICORE_IRQ_DISABLE | num + 16);
+		multicore_fifo_push_blocking(MULTICORE_IRQ_DISABLE | (num + 16));
 
 }
 
@@ -347,7 +347,7 @@ void __wrap_irq_set_pending(uint num)
 	}
 
 	/* Nope, forward to the other core */
-	multicore_fifo_push_blocking(MULTICORE_PEND_IRQ | num + 16);
+	multicore_fifo_push_blocking(MULTICORE_PEND_IRQ | (num + 16));
 }
 
 __constructor void multicore_irq_init(void)

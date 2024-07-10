@@ -296,7 +296,11 @@ static inline __always_inline __optimize osStatus_t osKernelContextIsValid(bool 
 			return osErrorParameter;
 
 		uint32_t irq_priority = NVIC_GetPriority(irq - 16);
+		/*
 		if (irq_priority < SCHEDULER_MAX_IRQ_PRIORITY)
+			return osErrorISR;
+		*/
+		if (irq_priority == SCHEDULER_REALTIME_IRQ_PRIORITY)
 			return osErrorISR;
 
 		return osOK;

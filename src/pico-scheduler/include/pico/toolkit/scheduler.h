@@ -209,7 +209,7 @@ struct scheduler
 
 	atomic_int running;
 	atomic_int locked;
-	atomic_int critical;
+	atomic_uint critical;
 	int critical_counter;
 
 	unsigned long marker;

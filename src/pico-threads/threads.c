@@ -232,8 +232,7 @@ static int _mtx_lock(mtx_t *mtx, unsigned long msec)
 
 	/* Handle recursive locks */
 	long value = (long)scheduler_task();
-	assert(value != 0);
-	if (value == (mtx->value & ~SCHEDULER_FUTEX_CONTENTION_TRACKING)) {
+	if (value == (long)(mtx->value & ~SCHEDULER_FUTEX_CONTENTION_TRACKING)) {
 		if ((mtx->type & mtx_recursive) == 0) {
 			errno = EINVAL;
 			return thrd_error;
@@ -254,7 +253,7 @@ static int _mtx_lock(mtx_t *mtx, unsigned long msec)
 		}
 
 		/* We have requested contention tracking, we might own the mutex now */
-		if (value == (mtx->value & ~SCHEDULER_FUTEX_CONTENTION_TRACKING))
+		if (value == (long)(mtx->value & ~SCHEDULER_FUTEX_CONTENTION_TRACKING))
 			break;
 
 		/* No we did not end up ownership, try again */
@@ -300,7 +299,7 @@ int mtx_unlock(mtx_t *mtx)
 
 	/* Make sure we are the locker */
 	long value = (long)scheduler_task();
-	if (value != (mtx->value & ~SCHEDULER_FUTEX_CONTENTION_TRACKING)) {
+	if (value != (long)(mtx->value & ~SCHEDULER_FUTEX_CONTENTION_TRACKING)) {
 		errno = EINVAL;
 		return thrd_error;
 	}

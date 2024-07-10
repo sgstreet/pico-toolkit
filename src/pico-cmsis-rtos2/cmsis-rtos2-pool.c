@@ -96,7 +96,7 @@ osMemoryPoolId_t osMemoryPoolNew (uint32_t block_count, uint32_t block_size, con
 
 	/* Initialize the free list */
 	new_pool->free_list = 0;
-	for (int i = 0; i < block_count; ++i) {
+	for (uint32_t i = 0; i < block_count; ++i) {
 		void **block = new_pool->pool_data + (i * block_size);
 		*block = new_pool->free_list;
 		new_pool->free_list = block;

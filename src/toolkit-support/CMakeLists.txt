@@ -17,6 +17,7 @@ if (NOT TARGET toolkit_support)
 		-Wall
 		-Wextra
 		-Wno-unused-parameter
+		-Wno-builtin-declaration-mismatch
 	)
 
 	target_sources(toolkit_support INTERFACE

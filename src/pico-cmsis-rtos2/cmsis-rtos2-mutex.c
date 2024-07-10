@@ -113,7 +113,7 @@ osStatus_t osMutexAcquire(osMutexId_t mutex_id, uint32_t timeout)
 
 	/* Handle recursive locks */
 	long value = (long)scheduler_task();
-	if (value == (mutex->value & ~SCHEDULER_FUTEX_CONTENTION_TRACKING)) {
+	if (value == (long)(mutex->value & ~SCHEDULER_FUTEX_CONTENTION_TRACKING)) {
 		if ((mutex->attr_bits & osMutexRecursive) == 0)
 			return osErrorParameter;
 		++mutex->count;
@@ -134,7 +134,7 @@ osStatus_t osMutexAcquire(osMutexId_t mutex_id, uint32_t timeout)
 			return status == -ETIMEDOUT || status == -ECANCELED ? osErrorTimeout : osError;
 
 		/* We have requested contention tracking, we might own the mutex now */
-		if (value == (mutex->value & ~SCHEDULER_FUTEX_CONTENTION_TRACKING))
+		if (value == (long)(mutex->value & ~SCHEDULER_FUTEX_CONTENTION_TRACKING))
 			break;
 
 		/* No we did not end up ownership, try again */

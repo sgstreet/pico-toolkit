@@ -59,10 +59,6 @@ static const struct unwind_index *unwind_search_index(const unwind_index_t *star
 
 static const char *unwind_get_function_name(void *address)
 {
-//	uint32_t flag_word = *(uint32_t *)(address - 4);
-//	if ((flag_word & 0xff000000) == 0xff000000) {
-//		return (const char *)(address - 4 - (flag_word & 0x00ffffff));
-//	}
 	if (((uint32_t)address & 0x3) == 0) {
 		uint32_t flag_word = *(uint32_t *)(address - 4);
 		if ((flag_word & 0xff000000) == 0xff000000) {
@@ -125,13 +121,13 @@ static int unwind_control_block_init(unwind_control_block_t *ucb, const uint32_t
 
 static int unwind_execute_instruction(unwind_control_block_t *ucb)
 {
-	int instruction;
+	uint32_t instruction;
 	uint32_t mask;
 	uint32_t reg;
 	uint32_t *vsp;
 
 	/* Consume all instruction byte */
-	while ((instruction = unwind_get_next_byte(ucb)) != -1) {
+	while ((instruction = unwind_get_next_byte(ucb)) != UINT32_MAX) {
 
 		if ((instruction & 0xc0) == 0x00) {
 			/* vsp = vsp + (xxxxxx << 2) + 4 */
@@ -242,7 +238,7 @@ static int unwind_execute_instruction(unwind_control_block_t *ucb)
 			return -1;
 	}
 
-	return instruction != -1;
+	return instruction != UINT32_MAX;
 }
 
 /* TODO How do I range check the stack pointer */

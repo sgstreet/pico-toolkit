@@ -185,7 +185,7 @@ void scheduler_startup_hook(void)
 	SCB->SCR = SCB_SCR_SEVONPEND_Msk;
 
 	/* We need to install a systick handler */
-	exception_set_exclusive_handler(SysTick_IRQn, SysTick_Handler);
+	exception_set_exclusive_handler(SYSTICK_EXCEPTION, SysTick_Handler);
 
 	/* Save the initial tls pointer */
 	cls_datum(old_tls) = __aeabi_read_tp();

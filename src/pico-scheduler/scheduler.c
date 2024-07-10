@@ -323,7 +323,7 @@ static inline unsigned long sched_queue_highest_priority(struct sched_queue *que
 
 static void sched_queue_reprioritize(struct task *task, unsigned long new_priority)
 {
-	assert(task != 0 && new_priority >= 0 && new_priority < SCHEDULER_NUM_TASK_PRIORITIES);
+	assert(task != 0);
 
 	task->current_priority = new_priority;
 	struct sched_queue *queue = task->current_queue;
@@ -591,7 +591,7 @@ void scheduler_wait_svc(struct scheduler_frame *frame)
 {
 	struct futex *futex = (struct futex *)frame->r0;
 	long expected = (long)frame->r1;
-	long value = (futex->flags & SCHEDULER_FUTEX_CONTENTION_TRACKING) ? expected | SCHEDULER_FUTEX_CONTENTION_TRACKING : expected;
+	long value = (futex->flags & SCHEDULER_FUTEX_CONTENTION_TRACKING) ? expected | (long)SCHEDULER_FUTEX_CONTENTION_TRACKING : expected;
 	unsigned long ticks = frame->r2;
 	struct task *current = sched_get_current();
 
@@ -1196,7 +1196,7 @@ unsigned long scheduler_enter_critical(void)
 	/* When we leave this function, 1) Interrupts are disabled, 2) we are hold the scheduler spin lock */
 	uint32_t state = disable_interrupts();
 
-	/* Do already owne the critical section? */
+	/* Do already own the critical section? */
 	if (scheduler->critical == scheduler_current_core()) {
 		++scheduler->critical_counter;
 		return state;
