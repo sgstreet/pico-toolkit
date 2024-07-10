@@ -5,9 +5,7 @@ The Pico Toolkit aims to provide a collection of production quality add-ons to t
 To encourage community support, the Pico Toolkit is licensed under the [Mozilla Public License](https://www.mozilla.org/en-US/MPL/2.0) (MPL). The MLP allows inclusion toolkit in closed source embedded systems while requiring the open sourcing of any changes to the the Pico Toolkit source code. This seems like a reasonable compromise allowing construction of typical closed source deeply embedded systems while preserving the copyleft, but non-viral, nature of successful open source development.
 
 # Contributing
-The Pico Toolkit project strives to be an [inclusive community](CODE_OF_CONDUCT.md) following [Bazzar Model](https://en.wikipedia.org/wiki/The_Cathedral_and_the_Bazaar) of software development.  We are looking for maintainers, contributors and testers! 
-
-> Ask me what I think of Cathedral projects pretending to be a Bazzar.
+The Pico Toolkit project strives to be an [inclusive community](CODE_OF_CONDUCT.md) following [Bazzar Model](https://en.wikipedia.org/wiki/The_Cathedral_and_the_Bazaar) of software development.  Looking for maintainers, contributors and testers! 
 
 [**Pull Requests**](https://github.com/sgstreet/pico-toolkit/pulls) are the primary way of contributing to the toolkit so go ahead, fork the repo, hack it and open a PR. A matching [**Pico Tookkit Issue**](https://github.com/sgstreet/pico-toolkit/issues) for enhancements and bug fixes would be greatly appreciated. A response and review is guaranteed!  
 
