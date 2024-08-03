@@ -20,7 +20,7 @@
 extern uintptr_t end;
 extern uintptr_t __StackLimit;
 
-static uintptr_t brk = (uintptr_t)&end;
+static uintptr_t current_brk = (uintptr_t)&end;
 
 void *sbrk(ptrdiff_t incr)
 {
@@ -30,11 +30,11 @@ void *sbrk(ptrdiff_t incr)
 	__LIBC_LOCK();
 
 	/* Move to new break, ensuring that the break pointer is always align on a 8 byte boundary */
-	uintptr_t new_brk = brk + ((incr + 7) & ~7);
+	uintptr_t new_brk = current_brk + ((incr + 7) & ~7);
 
 	if (new_brk >= (uintptr_t)&end || new_brk <= (uintptr_t)&__StackLimit) {
-		block = brk;
-		brk = new_brk;
+		block = current_brk;
+		current_brk = new_brk;
 	} else {
 		errno = ENOMEM;
 		block = -1;
